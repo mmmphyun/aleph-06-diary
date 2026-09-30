@@ -1,0 +1,30 @@
+{
+  "viewport": {
+    "perspective": "1400px"
+  },
+  "binder": {
+    "widthDesktop": "960px",
+    "heightDesktop": "640px",
+    "borderRadius": "16px",
+    "spineWidth": "16px",
+    "coverThickness": "4px"
+  },
+  "page": {
+    "padding": "24px",
+    "contentGap": "16px",
+    "cardBorderRadius": "8px"
+  },
+  "memo": {
+    "width": "220px",
+    "padding": "16px",
+    "rotation": "-2deg"
+  },
+  "animationDurations": {
+    "coverUnfoldMs": 700,
+    "coverFoldMs": 600,
+    "pageFlipMs": 450,
+    "stampSpringMs": 250,
+    "paperTearMs": 300,
+    "tapePeelMs": 350
+  }
+}

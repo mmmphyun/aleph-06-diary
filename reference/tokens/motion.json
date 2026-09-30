@@ -1,0 +1,41 @@
+{
+  "duration": {
+    "instant": "150ms",
+    "fast": "250ms",
+    "normal": "350ms",
+    "pageFlip": "450ms",
+    "coverFold": "600ms",
+    "coverUnfold": "700ms",
+    "penPulseLoop": "1000ms"
+  },
+  "easing": {
+    "coverUnfold": "cubic-bezier(0.16, 1, 0.3, 1)",
+    "coverFold": "cubic-bezier(0.2, 0, 0, 1)",
+    "pageFlip": "ease-out",
+    "stampSpring": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+    "paperTear": "ease-out",
+    "tapePeel": "ease-out",
+    "coffeeSplash": "ease-out",
+    "penPulse": "ease-in-out"
+  },
+  "keyframes": {
+    "coverUnfold": {
+      "transformOrigin": "left center",
+      "transform": "rotateY(-180deg)"
+    },
+    "pageCurl": {
+      "transformOrigin": "left center",
+      "transform": "rotateY(-180deg)"
+    },
+    "stampHaptic": [
+      { "transform": "scale(0.9)" },
+      { "transform": "scale(1.05)" },
+      { "transform": "scale(1)" }
+    ],
+    "penNibWiggle": [
+      { "transform": "translateX(-3px) rotate(-5deg)" },
+      { "transform": "translateX(3px) rotate(5deg)" },
+      { "transform": "translateX(-3px) rotate(-5deg)" }
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+# Design Reference
+reference/screenshots/*
+!reference/screenshots/.gitkeep
+reference/fonts/*.woff2
+reference/fonts/*.woff
+reference/fonts/*.ttf

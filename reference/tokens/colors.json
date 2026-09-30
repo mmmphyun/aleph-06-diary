@@ -1,0 +1,79 @@
+{
+  "activeTheme": "theme-4",
+  "default": {
+    "name": "웜 토프 & 더스티 슬레이트 (Warm Taupe & Dusty Slate)",
+    "canvas": {
+      "desk": "#EAE6DF",
+      "shadow": "rgba(0, 0, 0, 0.28)"
+    },
+    "chassis": {
+      "cover": "#3A3632",
+      "coverBorder": "#2E2A27",
+      "spineCrease": "#D6D3D1",
+      "paperBase": "#FDFBF7",
+      "paperBorder": "#E7E5E4"
+    },
+    "accents": {
+      "memoBg": "#FDF2F2",
+      "memoBorder": "#F3CECC",
+      "memoText": "#823831",
+      "tape": "rgba(243, 206, 204, 0.6)",
+      "primaryTab": "#4A6B82",
+      "secondaryTab": "#B8736B"
+    },
+    "status": {
+      "todo": { "bg": "#F5F5F4", "text": "#78716C", "border": "#E7E5E4" },
+      "inProgress": { "bg": "#FEF9C3", "text": "#854D0E", "border": "#FEF08A" },
+      "done": { "bg": "#4A6B82", "text": "#FFFFFF", "border": "#3D5A6F" }
+    }
+  },
+  "themes": {
+    "theme-1": {
+      "name": "포레스트 세이지 & 머스터드",
+      "cover": "#1F2F23",
+      "paper": "#FDFBF7",
+      "primaryTab": "#4D7C5F",
+      "secondaryTab": "#D9A74A",
+      "memoBg": "#FEF7EA",
+      "memoText": "#3D2C0D",
+      "doneBadge": "#4D7C5F"
+    },
+    "theme-2": {
+      "name": "미드나잇 네이비 & 테라코타",
+      "cover": "#1E2638",
+      "paper": "#FDFBF7",
+      "primaryTab": "#7CA5B8",
+      "secondaryTab": "#C85A32",
+      "memoBg": "#F8EDE6",
+      "memoText": "#8F3718",
+      "doneBadge": "#C85A32"
+    },
+    "theme-3": {
+      "name": "매트 흑연 & 앰버",
+      "cover": "#2B2A27",
+      "paper": "#FDFBF7",
+      "primaryTab": "#8C887B",
+      "secondaryTab": "#E5A93C",
+      "memoBg": "#FEF7EA",
+      "memoText": "#8C5F10",
+      "doneBadge": "#E5A93C"
+    },
+    "theme-4": {
+      "name": "웜 토프 & 더스티 슬레이트 (기본)",
+      "cover": "#3A3632",
+      "paper": "#FDFBF7",
+      "primaryTab": "#4A6B82",
+      "secondaryTab": "#B8736B",
+      "memoBg": "#FDF2F2",
+      "memoText": "#823831",
+      "doneBadge": "#4A6B82"
+    }
+  },
+  "editorial": {
+    "textPrimary": "#1C1917",
+    "textSecondary": "#57534E",
+    "textMuted": "#A8A29E",
+    "borderLight": "#F5F5F4",
+    "errorSplash": "rgba(120, 53, 15, 0.15)"
+  }
+}

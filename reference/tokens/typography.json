@@ -1,0 +1,118 @@
+{
+  "families": {
+    "systemDisplay": [
+      "Inter",
+      "Pretendard",
+      "-apple-system",
+      "sans-serif"
+    ],
+    "systemBody": [
+      "Pretendard",
+      "-apple-system",
+      "BlinkMacSystemFont",
+      "system-ui",
+      "sans-serif"
+    ],
+    "systemMono": [
+      "JetBrains Mono",
+      "D2Coding",
+      "ui-monospace",
+      "monospace"
+    ],
+    "handwritingNormal": [
+      "NormalHandwriting",
+      "cursive",
+      "sans-serif"
+    ],
+    "handwritingAdult": [
+      "AdultHandwriting",
+      "cursive",
+      "sans-serif"
+    ],
+    "handwritingChild": [
+      "ChildHandwriting",
+      "cursive",
+      "sans-serif"
+    ]
+  },
+  "sources": {
+    "handwritingNormal": {
+      "file": "/reference/fonts/normal.ttf",
+      "format": "truetype",
+      "display": "swap"
+    },
+    "handwritingAdult": {
+      "file": "/reference/fonts/adult.ttf",
+      "format": "truetype",
+      "display": "swap"
+    },
+    "handwritingChild": {
+      "file": "/reference/fonts/child.ttf",
+      "format": "truetype",
+      "display": "swap"
+    }
+  },
+  "roles": {
+    "coverTitle": {
+      "family": "systemMono",
+      "size": "0.875rem",
+      "weight": 500,
+      "letterSpacing": "0.25em",
+      "textTransform": "uppercase"
+    },
+    "sortBanner": {
+      "family": "systemMono",
+      "size": "0.75rem",
+      "weight": 400,
+      "lineHeight": 1.4
+    },
+    "timestamp": {
+      "family": "systemMono",
+      "size": "0.8125rem",
+      "weight": 500,
+      "lineHeight": 1.4
+    },
+    "metricNumber": {
+      "family": "systemMono",
+      "size": "1.75rem",
+      "weight": 700,
+      "lineHeight": 1.2
+    },
+    "systemUi": {
+      "family": "systemBody",
+      "size": "0.875rem",
+      "weight": 500,
+      "lineHeight": 1.5
+    },
+    "badge": {
+      "family": "systemBody",
+      "size": "0.75rem",
+      "weight": 600,
+      "lineHeight": 1.2
+    },
+    "userHandwritingTitle": {
+      "family": "selectedHandwriting",
+      "size": "1.25rem",
+      "weight": 600,
+      "lineHeight": 1.4
+    },
+    "userHandwritingBody": {
+      "family": "selectedHandwriting",
+      "size": "1rem",
+      "weight": 400,
+      "lineHeight": 1.6
+    },
+    "noticeMemo": {
+      "family": "selectedHandwriting",
+      "size": "0.8125rem",
+      "weight": 400,
+      "lineHeight": 1.5
+    },
+    "blockerReason": {
+      "family": "selectedHandwriting",
+      "size": "0.9375rem",
+      "weight": 400,
+      "lineHeight": 1.5
+    }
+  }
+}

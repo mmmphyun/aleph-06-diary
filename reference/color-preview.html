@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>다이어리 포인트 색상 테마 4종 비교</title>
+  <style>
+    @font-face {
+      font-family: 'DiaryNormal';
+      src: url('fonts/normal.ttf') format('truetype');
+    }
+    @font-face {
+      font-family: 'DiaryAdult';
+      src: url('fonts/adult.ttf') format('truetype');
+    }
+    @font-face {
+      font-family: 'DiaryChild';
+      src: url('fonts/child.ttf') format('truetype');
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #EAE6DF;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Pretendard", sans-serif;
+      padding: 40px 20px;
+      color: #2D2A26;
+    }
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      margin-bottom: 8px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 14px;
+      color: #6B655B;
+      margin-bottom: 36px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 32px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .theme-card {
+      background: #F4F1EA;
+      border: 1px solid #D8D2C4;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+    }
+    .theme-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .theme-title {
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .theme-tag {
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: #E5DFD3;
+      color: #554F45;
+    }
+    
+    /* 미니 다이어리 섀시 */
+    .mini-book {
+      display: flex;
+      height: 240px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 12px 24px -6px rgba(0,0,0,0.22);
+      border: 1px solid rgba(0,0,0,0.15);
+      position: relative;
+    }
+    .book-cover {
+      width: 38%;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      color: #FFF;
+      position: relative;
+      border-right: 2px solid rgba(0,0,0,0.2);
+    }
+    .cover-title {
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      opacity: 0.7;
+      font-weight: 600;
+    }
+    .lock-icon {
+      width: 28px;
+      height: 28px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      opacity: 0.85;
+      margin: auto 0;
+    }
+    .book-page {
+      width: 62%;
+      background: #FDFBF7;
+      padding: 16px 18px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px dashed #E5E0D5;
+      padding-bottom: 8px;
+    }
+    .page-title {
+      font-family: 'DiaryNormal', cursive, sans-serif;
+      font-size: 18px;
+      font-weight: bold;
+      color: #1C1917;
+    }
+    .metric-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .handwritten-content {
+      font-family: 'DiaryNormal', cursive, sans-serif;
+      font-size: 15px;
+      line-height: 1.4;
+      color: #292524;
+      margin: 10px 0;
+    }
+    .strike {
+      text-decoration: line-through;
+      opacity: 0.45;
+    }
+    
+    /* 포스트잇 메모 */
+    .memo-note {
+      padding: 8px 10px;
+      border-radius: 3px;
+      font-size: 11px;
+      line-height: 1.35;
+      font-family: 'DiaryAdult', cursive, sans-serif;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.08);
+      position: relative;
+    }
+    .memo-note::before {
+      content: "";
+      position: absolute;
+      top: -4px;
+      left: 30%;
+      width: 32px;
+      height: 8px;
+      background: rgba(255,255,255,0.4);
+      border-radius: 1px;
+    }
+
+    /* 우측 인덱스 탭 */
+    .index-tabs {
+      position: absolute;
+      right: 0;
+      top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .tab {
+      width: 14px;
+      height: 28px;
+      border-radius: 3px 0 0 3px;
+      box-shadow: -2px 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* 테마 1: 포레스트 세이지 */
+    .t1-cover { background-color: #1F2F23; }
+    .t1-accent { background-color: #D9A74A; color: #3D2C0D; }
+    .t1-sage { background-color: #E2ECE5; color: #2D523B; }
+    .t1-tab1 { background-color: #4D7C5F; }
+    .t1-tab2 { background-color: #D9A74A; }
+
+    /* 테마 2: 미드나잇 네이비 & 테라코타 */
+    .t2-cover { background-color: #1E2638; }
+    .t2-accent { background-color: #F8EDE6; color: #8F3718; border: 1px solid #ECC9BA; }
+    .t2-terracotta { background-color: #C85A32; color: #FFF; }
+    .t2-tab1 { background-color: #7CA5B8; }
+    .t2-tab2 { background-color: #C85A32; }
+
+    /* 테마 3: 매트 차콜 & 앰버 */
+    .t3-cover { background-color: #2B2A27; }
+    .t3-accent { background-color: #FEF7EA; color: #8C5F10; border: 1px solid #F5DEB3; }
+    .t3-amber { background-color: #E5A93C; color: #FFF; }
+    .t3-tab1 { background-color: #8C887B; }
+    .t3-tab2 { background-color: #E5A93C; }
+
+    /* 테마 4: 웜 토프 & 더스티 슬레이트 */
+    .t4-cover { background-color: #3A3632; }
+    .t4-accent { background-color: #FDF2F2; color: #823831; border: 1px solid #F3CECC; }
+    .t4-slate { background-color: #4A6B82; color: #FFF; }
+    .t4-tab1 { background-color: #4A6B82; }
+    .t4-tab2 { background-color: #B8736B; }
+
+    .palette {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .swatch {
+      flex: 1;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-family: monospace;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>다이어리 색상 테마 4종 시각 프리뷰</h1>
+  <p class="subtitle">실제 업로드된 손글씨 폰트(normal.ttf, adult.ttf)와 다이어리 구조를 적용한 실물 시뮬레이션입니다.</p>
+
+  <div class="grid">
+
+    <!-- 테마 1 -->
+    <div class="theme-card">
+      <div class="theme-header">
+        <div class="theme-title">1. 포레스트 세이지 & 머스터드</div>
+        <div class="theme-tag">내추럴 킨포크</div>
+      </div>
+      <div class="mini-book">
+        <div class="book-cover t1-cover">
+          <div class="cover-title">Plan-Do-See</div>
+          <svg class="lock-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+          <div style="font-size: 11px; opacity: 0.6;">2026 Diary</div>
+        </div>
+        <div class="book-page">
+          <div class="index-tabs">
+            <div class="tab t1-tab1"></div>
+            <div class="tab t1-tab2"></div>
+          </div>
+          <div class="page-header">
+            <span class="page-title">10월 첫째 주 계획</span>
+            <span class="metric-badge t1-sage">진행 중 · D-3</span>
+          </div>
+          <div class="handwritten-content">
+            <span class="strike">기존: 30분 운동</span> → 매일 45분 걷기<br>
+            성공 기준: 주 4회 이상 기록 남기기
+          </div>
+          <div class="memo-note t1-accent">
+            지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요.
+          </div>
+        </div>
+      </div>
+      <div class="palette">
+        <div class="swatch" style="background:#1F2F23; color:#FFF;">#1F2F23</div>
+        <div class="swatch" style="background:#4D7C5F; color:#FFF;">#4D7C5F</div>
+        <div class="swatch" style="background:#D9A74A; color:#222;">#D9A74A</div>
+        <div class="swatch" style="background:#FDFBF7; color:#222; border:1px solid #DDD;">#FDFBF7</div>
+      </div>
+    </div>
+
+    <!-- 테마 2 -->
+    <div class="theme-card">
+      <div class="theme-header">
+        <div class="theme-title">2. 미드나잇 네이비 & 테라코타</div>
+        <div class="theme-tag">런던 클래식 양장</div>
+      </div>
+      <div class="mini-book">
+        <div class="book-cover t2-cover">
+          <div class="cover-title">Plan-Do-See</div>
+          <svg class="lock-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+          <div style="font-size: 11px; opacity: 0.6;">2026 Diary</div>
+        </div>
+        <div class="book-page">
+          <div class="index-tabs">
+            <div class="tab t2-tab1"></div>
+            <div class="tab t2-tab2"></div>
+          </div>
+          <div class="page-header">
+            <span class="page-title">알고리즘 과제 제출</span>
+            <span class="metric-badge t2-terracotta">우선순위: 높음</span>
+          </div>
+          <div class="handwritten-content">
+            트리 탐색 5문제 풀기 (예상 90분)<br>
+            <span class="strike">실패 이유: 재귀 깊이 초과</span>
+          </div>
+          <div class="memo-note t2-accent">
+            지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요.
+          </div>
+        </div>
+      </div>
+      <div class="palette">
+        <div class="swatch" style="background:#1E2638; color:#FFF;">#1E2638</div>
+        <div class="swatch" style="background:#C85A32; color:#FFF;">#C85A32</div>
+        <div class="swatch" style="background:#7CA5B8; color:#222;">#7CA5B8</div>
+        <div class="swatch" style="background:#FDFBF7; color:#222; border:1px solid #DDD;">#FDFBF7</div>
+      </div>
+    </div>
+
+    <!-- 테마 3 -->
+    <div class="theme-card">
+      <div class="theme-header">
+        <div class="theme-title">3. 매트 흑연 & 앰버</div>
+        <div class="theme-tag">건축가 모눈 저널</div>
+      </div>
+      <div class="mini-book">
+        <div class="book-cover t3-cover">
+          <div class="cover-title">Plan-Do-See</div>
+          <svg class="lock-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+          <div style="font-size: 11px; opacity: 0.6;">2026 Diary</div>
+        </div>
+        <div class="book-page">
+          <div class="index-tabs">
+            <div class="tab t3-tab1"></div>
+            <div class="tab t3-tab2"></div>
+          </div>
+          <div class="page-header">
+            <span class="page-title">프로젝트 아키텍처 설계</span>
+            <span class="metric-badge t3-amber">완료 · 120분</span>
+          </div>
+          <div class="handwritten-content">
+            REST API 엔드포인트 3개 검증 완료<br>
+            오차: 예상 120분 대비 10분 단축
+          </div>
+          <div class="memo-note t3-accent">
+            지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요.
+          </div>
+        </div>
+      </div>
+      <div class="palette">
+        <div class="swatch" style="background:#2B2A27; color:#FFF;">#2B2A27</div>
+        <div class="swatch" style="background:#E5A93C; color:#FFF;">#E5A93C</div>
+        <div class="swatch" style="background:#8C887B; color:#FFF;">#8C887B</div>
+        <div class="swatch" style="background:#FDFBF7; color:#222; border:1px solid #DDD;">#FDFBF7</div>
+      </div>
+    </div>
+
+    <!-- 테마 4 -->
+    <div class="theme-card">
+      <div class="theme-header">
+        <div class="theme-title">4. 웜 토프 & 더스티 슬레이트</div>
+        <div class="theme-tag">북유럽 리넨 패브릭</div>
+      </div>
+      <div class="mini-book">
+        <div class="book-cover t4-cover">
+          <div class="cover-title">Plan-Do-See</div>
+          <svg class="lock-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+          <div style="font-size: 11px; opacity: 0.6;">2026 Diary</div>
+        </div>
+        <div class="book-page">
+          <div class="index-tabs">
+            <div class="tab t4-tab1"></div>
+            <div class="tab t4-tab2"></div>
+          </div>
+          <div class="page-header">
+            <span class="page-title">주간 회고 & 오차 점검</span>
+            <span class="metric-badge t4-slate">돌아보기</span>
+          </div>
+          <div class="handwritten-content">
+            계획 1건 · 할 일 5건 · 실행 기록 3건<br>
+            평균 시간 오차: +15분 (지연 발생)
+          </div>
+          <div class="memo-note t4-accent">
+            지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요.
+          </div>
+        </div>
+      </div>
+      <div class="palette">
+        <div class="swatch" style="background:#3A3632; color:#FFF;">#3A3632</div>
+        <div class="swatch" style="background:#4A6B82; color:#FFF;">#4A6B82</div>
+        <div class="swatch" style="background:#B8736B; color:#FFF;">#B8736B</div>
+        <div class="swatch" style="background:#FDFBF7; color:#222; border:1px solid #DDD;">#FDFBF7</div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

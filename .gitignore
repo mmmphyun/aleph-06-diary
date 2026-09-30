@@ -1,0 +1,19 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Handover & Session Memory (Strictly prohibited from git)
+HANDOVER.md
+.session-memory/
+
+# Dependencies & Build
+node_modules/
+dist/
+
+# Design Reference Binaries
+reference/screenshots/*
+!reference/screenshots/.gitkeep
+reference/fonts/*.woff2
+reference/fonts/*.woff
+reference/fonts/*.ttf
