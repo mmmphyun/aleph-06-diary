@@ -10,6 +10,7 @@ HANDOVER.md
 # Dependencies & Build
 node_modules/
 dist/
+*.tsbuildinfo
 
 # Design Reference Binaries
 reference/screenshots/*
@@ -17,3 +18,6 @@ reference/screenshots/*
 reference/fonts/*.woff2
 reference/fonts/*.woff
 reference/fonts/*.ttf
+public/fonts/*.woff2
+public/fonts/*.woff
+public/fonts/*.ttf

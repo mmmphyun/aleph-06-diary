@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'NormalHandwriting';
+  src: url('/fonts/normal.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'AdultHandwriting';
+  src: url('/fonts/adult.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ChildHandwriting';
+  src: url('/fonts/child.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --color-cover: #3A3632;
+  --color-paper: #FDFBF7;
+  --color-primary-tab: #4A6B82;
+  --color-secondary-tab: #B8736B;
+  --color-memo-bg: #FDF2F2;
+  --color-memo-text: #823831;
+  --color-done-badge: #4A6B82;
+  --selected-font: 'NormalHandwriting';
+}
+
+.perspective-1400 {
+  perspective: 1400px;
+}
+
+.transform-style-preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* 모눈종이 그리드 패턴 */
+.bg-grid-pattern {
+  background-size: 20px 20px;
+  background-image: 
+    linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+}
