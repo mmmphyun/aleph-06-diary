@@ -13,22 +13,22 @@ export const CoverView: React.FC<CoverViewProps> = ({
   isAnimating,
   onOpen,
 }) => {
-  // 완전히 열린 후(애니메이션 완료)에는 속지 조작을 위해 투명화 및 포인터 이벤트 차단
+  // 완전히 열린 후(애니메이션 완료)에는 속지 조작을 위해 커버를 비활성화
   const isFullyOpen = isOpen && !isAnimating;
 
   return (
     <div
-      className={`absolute top-0 right-0 w-[480px] h-[640px] z-30 select-none transition-opacity duration-300 ${
+      className={`absolute top-0 right-0 w-[480px] h-[640px] z-30 select-none ${
         isFullyOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
       } ${isAnimating ? 'pointer-events-none' : ''}`}
       style={{
         transformOrigin: 'left center',
         transformStyle: 'preserve-3d',
-        transition: 'transform 700ms cubic-bezier(0.16, 1, 0.3, 1), opacity 300ms ease',
+        transition: 'transform 700ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease',
         transform: isOpen ? 'rotateY(-180deg)' : 'rotateY(0deg)',
       }}
     >
-      {/* 표지 앞면 (Front Cover) */}
+      {/* 표지 앞면 (Front Cover): 0°~90° 구간에서만 보이고, 90° 이상 회전 시 backface-hidden에 의해 자연 소멸 */}
       <div
         className="absolute inset-0 w-full h-full rounded-r-xl border-y-4 border-r-4 border-[#2E2A27]/80 flex flex-col items-center justify-between p-8 text-stone-200 backface-hidden shadow-2xl"
         style={{
@@ -59,28 +59,6 @@ export const CoverView: React.FC<CoverViewProps> = ({
           <span className="text-[11px] font-mono tracking-wider text-stone-500/80">
             PRIVATE LOCAL MEMORY
           </span>
-        </div>
-      </div>
-
-      {/* 표지 뒷면 (Backface Inside Cover - 표지가 -180도 회전했을 때 왼쪽 페이지 뒤에 붙는 면) */}
-      <div
-        className="absolute inset-0 w-full h-full rounded-l-xl border-y-4 border-l-4 border-[#2E2A27]/80 flex flex-col items-center justify-center p-6 text-stone-300 backface-hidden shadow-inner"
-        style={{
-          backgroundColor: 'var(--color-cover)',
-          transform: 'rotateY(180deg)',
-        }}
-      >
-        <div className="w-full h-full border border-stone-600/30 rounded-lg p-6 flex flex-col justify-between bg-stone-900/30">
-          <div className="text-xs font-mono text-stone-400">
-            <div>INSIDE COVER</div>
-            <div className="text-[10px] text-stone-500 mt-1">PLAN-DO-SEE NOTEBOOK</div>
-          </div>
-          <div className="text-center font-handwriting text-stone-400 text-lg">
-            "생각을 기록하고, 행동을 살피며, 삶을 반추하다"
-          </div>
-          <div className="text-[10px] font-mono text-stone-500 text-right">
-            ALEPH-06 • SYSTEM
-          </div>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { SpineDivider } from './SpineDivider';
 import { CoverView } from './CoverView';
 import { EmptyState } from './EmptyState';
@@ -14,6 +14,10 @@ import { BookMarked, RotateCw, Sparkles, RefreshCcw, Layers } from 'lucide-react
 export const BinderChassis: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+
+  // 좌측 내지 노출 타이밍 제어 (350ms 표지 통과 시점 동기화)
+  const [showLeftPage, setShowLeftPage] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // M2 계획 데이터 상태
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -40,24 +44,50 @@ export const BinderChassis: React.FC = () => {
 
   useEffect(() => {
     loadPlanData();
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [loadPlanData]);
 
+  /**
+   * 다이어리 열기 인터랙션
+   * - 0ms: 표지 회전 시작 (rotateY 0° -> -90°). 우측 내지가 드러나기 시작.
+   * - 350ms: 표지가 90도를 넘어 좌측 영역으로 진입하는 순간 좌측 내지 활성화.
+   * - 700ms: 표지 회전 완료 및 속지 완전 조작 개방.
+   */
   const handleOpenCover = () => {
     if (isAnimating || isOpen) return;
     setIsAnimating(true);
     setIsOpen(true);
+
+    // 표지가 90도를 넘어 좌측 위를 덮고 지나가는 350ms 시점에 좌측 내지 활성화 (깜빡임 원천 차단)
+    timerRef.current = setTimeout(() => {
+      setShowLeftPage(true);
+    }, 350);
+
     setTimeout(() => {
       setIsAnimating(false);
-    }, 700); // coverUnfold 700ms
+    }, 700);
   };
 
+  /**
+   * 다이어리 닫기 인터랙션
+   * - 0ms: 표지 닫힘 회전 시작 (rotateY -180° -> 0°).
+   * - 300ms: 표지가 90도를 지나 우측으로 넘어갈 때 좌측 데스크 메모지로 환원.
+   * - 600ms: 닫힌 다이어리 고정.
+   */
   const handleCloseCover = () => {
     if (isAnimating || !isOpen) return;
     setIsAnimating(true);
     setIsOpen(false);
+
+    timerRef.current = setTimeout(() => {
+      setShowLeftPage(false);
+    }, 300);
+
     setTimeout(() => {
       setIsAnimating(false);
-    }, 600); // coverFold 600ms
+    }, 600);
   };
 
   const handlePlanUpdated = (updatedPlan: Plan) => {
@@ -79,15 +109,14 @@ export const BinderChassis: React.FC = () => {
   return (
     <div className="relative w-[960px] h-[640px] perspective-1400">
       {/* ========================================================================= */}
-      {/* [레이어 1: 닫힘 상태 베이스] 좌측 데스크 메모지 + 우측 닫힌 단권 다이어리 (480px) */}
-      {/* 표지가 닫혀 있을 때 검은색 바인더가 좌측까지 길게 늘어나는 시각 왜곡을 원천 차단 */}
+      {/* [레이어 1: 닫힘 상태 베이스] 좌측 데스크 메모지 + 우측 닫힌 단권 다이어리 베이스 */}
       {/* ========================================================================= */}
       <div
         className={`absolute inset-0 w-full h-full flex items-center justify-between transition-opacity duration-300 ${
-          isOpen && !isAnimating ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          showLeftPage && !isAnimating ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
       >
-        {/* 좌측 480px: 순수 웜스톤 데스크 위의 단독 메모지 (하드커버 테두리/배경 0%) */}
+        {/* 좌측 480px: 순수 웜스톤 데스크 위의 단독 메모지 */}
         <div className="w-[480px] h-[640px] flex items-center justify-center p-4">
           <DeskMemoSheet />
         </div>
@@ -116,8 +145,11 @@ export const BinderChassis: React.FC = () => {
       >
         <div className="relative w-full h-full flex transform-style-preserve-3d">
           {/* ---------------- 좌측 내지 페이지 (Left Page: 480×640px) ---------------- */}
+          {/* showLeftPage 시점에만 부드럽게 노출되어 메모지 위 깜빡임 완전 방지 */}
           <div
-            className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4]"
+            className={`w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4] transition-opacity duration-200 ${
+              showLeftPage ? 'opacity-100' : 'opacity-0'
+            }`}
             style={{
               backgroundColor: 'var(--color-paper)',
             }}
