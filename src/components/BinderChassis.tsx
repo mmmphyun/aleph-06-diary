@@ -9,15 +9,16 @@ import { RevisionTimeline } from './RevisionTimeline';
 import { DeskMemoSheet } from './DeskMemoSheet';
 import { Plan } from '../types/plan';
 import { planService } from '../services/planService';
-import { BookMarked, RotateCw, Sparkles, RefreshCcw, Layers, BookOpen } from 'lucide-react';
+import { BookMarked, RotateCw, Sparkles, RefreshCcw, Layers, BookOpen, ArrowRight } from 'lucide-react';
 
 type FlipPhase =
-  | 'closed'        // 닫힌 상태 (좌: 데스크 메모지, 우: 닫힌 앞표지)
-  | 'opening-cover' // [넘김 1] 검은색 앞표지만 열기 (0ms ~ 360ms) -> 좌: 표지 안쪽(Inside Cover), 우: 첫 번째 흰색 내지
-  | 'flipping-leaf' // [넘김 2] 흰색 내지만 왼쪽으로 넘기기 (360ms ~ 720ms) -> 좌: 좌측 본문, 우: 우측 타임라인
-  | 'opened'        // 완전 개방 상태 (양면 속지 상호작용)
-  | 'closing-leaf'  // 닫기 1단계: 흰색 내지만 우측으로 되덮기 (0ms ~ 300ms)
-  | 'closing-cover';// 닫기 2단계: 검은색 앞표지 덮기 (300ms ~ 600ms)
+  | 'closed'        // Frame 0: 닫힌 상태 (좌: 데스크 메모지, 우: 닫힌 앞표지)
+  | 'opening-cover' // [수동 클릭 1] 앞표지만 열기 (0ms ~ 450ms) -> 좌: 인사이드 커버 안착 중
+  | 'cover-opened'  // Frame 1: 앞표지 열림 완료 (좌: 인사이드 커버 소유자 서명, 우: 첫 내지 LEAF 01 정지 노출)
+  | 'leaf-flipping' // [수동 클릭 2] 흰색 내지만 왼쪽으로 넘기기 (0ms ~ 450ms)
+  | 'opened'        // Frame 3: 완전 개방 상태 (좌: PlanCard 인라인, 우: RevisionTimeline)
+  | 'closing-leaf'  // 닫기 1단계: 흰색 내지만 우측으로 되덮기 (0ms ~ 350ms)
+  | 'closing-cover';// 닫기 2단계: 검은색 앞표지 덮기 (350ms ~ 800ms)
 
 export const BinderChassis: React.FC = () => {
   const [phase, setPhase] = useState<FlipPhase>('closed');
@@ -56,47 +57,58 @@ export const BinderChassis: React.FC = () => {
   }, [loadPlanData]);
 
   /**
-   * [넘김 1 & 2 연쇄 인터랙션]
-   * 1. 0ms ~ 360ms: 앞표지만 열려 좌측에는 인사이드 커버, 우측에는 첫 번째 흰색 내지가 보임.
-   * 2. 360ms ~ 720ms: 검은색 표지는 바닥에 고정되고, 오직 우측의 흰색 내지 1장만 왼쪽으로 넘어가 본문 완성.
+   * [수동 클릭 1: 표지 열기]
+   * 앞표지만 450ms 동안 -180도 회전하여 좌측 Inside Cover로 안착.
+   * 회전 완료 후 'cover-opened' 상태에서 정지 노출 (자동 연쇄 타이머 폐지).
    */
   const handleOpenCover = () => {
     if (phase !== 'closed') return;
+    if (timer1Ref.current) clearTimeout(timer1Ref.current);
 
-    // [넘김 1] 앞표지 열기 시작
     setPhase('opening-cover');
-
-    // [넘김 2] 360ms 시점에 앞표지 안착 직후, 흰색 내지만 단독으로 넘김
     timer1Ref.current = setTimeout(() => {
-      setPhase('flipping-leaf');
-    }, 360);
+      setPhase('cover-opened');
+    }, 450);
+  };
 
-    // 완료: 720ms 시점에 양면 본문 완전 활성화
+  /**
+   * [수동 클릭 2: 다음 장 넘기기]
+   * 우측 LEAF 01 표제지 하단의 명시적 클릭에 의해 격발.
+   * 흰색 내지 1장만 중앙 제본선 축으로 450ms 동안 -180도 회전하여 좌측에 안착 후 본문 개방.
+   */
+  const handleFlipLeaf = () => {
+    if (phase !== 'cover-opened') return;
+    if (timer2Ref.current) clearTimeout(timer2Ref.current);
+
+    setPhase('leaf-flipping');
     timer2Ref.current = setTimeout(() => {
       setPhase('opened');
-    }, 720);
+    }, 450);
   };
 
   /**
    * 닫기 인터랙션
-   * 1. 0ms ~ 300ms: 흰색 내지만 우측으로 되덮음.
-   * 2. 300ms ~ 600ms: 검은색 앞표지가 우측으로 덮이며 닫힘 완료.
+   * - opened 상태: 내지 되덮기(350ms) ➔ 앞표지 덮기(450ms) ➔ closed
+   * - cover-opened 상태: 앞표지만 되덮기(450ms) ➔ closed
    */
   const handleCloseCover = () => {
-    if (phase !== 'opened') return;
+    if (timer1Ref.current) clearTimeout(timer1Ref.current);
+    if (timer2Ref.current) clearTimeout(timer2Ref.current);
 
-    // 1단계: 흰색 내지만 되덮기
-    setPhase('closing-leaf');
-
-    // 2단계: 300ms 후 앞표지 덮기
-    timer1Ref.current = setTimeout(() => {
+    if (phase === 'opened') {
+      setPhase('closing-leaf');
+      timer1Ref.current = setTimeout(() => {
+        setPhase('closing-cover');
+        timer2Ref.current = setTimeout(() => {
+          setPhase('closed');
+        }, 450);
+      }, 350);
+    } else if (phase === 'cover-opened') {
       setPhase('closing-cover');
-    }, 300);
-
-    // 완료: 600ms 후 닫힌 상태 고정
-    timer2Ref.current = setTimeout(() => {
-      setPhase('closed');
-    }, 600);
+      timer1Ref.current = setTimeout(() => {
+        setPhase('closed');
+      }, 450);
+    }
   };
 
   const handlePlanUpdated = (updatedPlan: Plan) => {
@@ -117,8 +129,8 @@ export const BinderChassis: React.FC = () => {
 
   // 표지 열림 여부 (넘김 1 완료 시점부터 닫기 2단계 전까지 열림 유지)
   const isCoverOpen = phase !== 'closed' && phase !== 'closing-cover';
-  // 흰색 속지 플립 여부
-  const isLeafFlipped = phase === 'flipping-leaf' || phase === 'opened' || phase === 'closing-leaf';
+  // 흰색 속지 플립 여부 (수동 클릭 2 진행 및 본문 개방 시점)
+  const isLeafFlipped = phase === 'leaf-flipping' || phase === 'opened' || phase === 'closing-leaf';
 
   return (
     <div className="relative w-[960px] h-[640px] perspective-1400">
@@ -406,23 +418,22 @@ export const BinderChassis: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* [넘김 2: 흰색 내지만 넘기기 (FlipLeaf: z-25)] */}
-      {/* 검은색 표지는 이미 바닥에 깔려 있고, 오직 우측의 흰색 내지 1장만 왼쪽으로 넘김 */}
-      {/* 360ms 전: 우측에서 첫 장 표제지로 대기 (타임라인 완벽 차단) */}
-      {/* 360ms 후: 180도 회전하여 좌측의 인사이드 커버 위로 넘어가 안착 */}
+      {/* [수동 클릭 2: 흰색 내지만 넘기기 (FlipLeaf: z-25)] */}
+      {/* Frame 1(cover-opened): 우측에서 첫 장 표제지(LEAF 01)로 정지 노출 (우측 타임라인 완전 차단) */}
+      {/* 사용자가 '다음 장 넘기기 →'를 클릭하면 450ms 동안 -180도 회전하여 좌측 인사이드 커버 위로 안착 */}
       {/* ========================================================================= */}
       {phase !== 'closed' && (
         <div
-          className={`absolute top-0 right-0 w-[480px] h-[640px] z-25 select-none pointer-events-none transition-transform duration-360 ease-in-out ${
+          className={`absolute top-0 right-0 w-[480px] h-[640px] z-25 select-none transition-transform duration-450 ease-in-out ${
             phase === 'opened' ? 'hidden' : 'block'
-          }`}
+          } ${phase === 'cover-opened' ? 'pointer-events-auto' : 'pointer-events-none'}`}
           style={{
             transformOrigin: 'left center',
             transformStyle: 'preserve-3d',
             transform: isLeafFlipped ? 'rotateY(-180deg)' : 'rotateY(0deg)',
           }}
         >
-          {/* 속지 앞면 (Front): 넘김 1 완료 시 우측에 보이는 첫 번째 흰색 내지 (타임라인 가림막) */}
+          {/* 속지 앞면 (Front): Frame 1에서 우측에 보이는 첫 번째 흰색 내지 (타임라인 가림막) */}
           <div
             className="absolute inset-0 w-full h-full p-8 flex flex-col justify-between border-l border-[#E7E5E4] backface-hidden shadow-xl"
             style={{
@@ -446,8 +457,19 @@ export const BinderChassis: React.FC = () => {
                 </p>
               </div>
             </div>
-            <div className="text-[10px] font-mono text-stone-400 text-right">
-              ALEPH-06 DIARY
+            <div className="pt-3 border-t border-stone-200 flex items-center justify-between">
+              <span className="text-[10px] font-mono text-stone-400">ALEPH-06 DIARY</span>
+              {phase === 'cover-opened' && (
+                <button
+                  type="button"
+                  onClick={handleFlipLeaf}
+                  className="px-3.5 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-all shadow-sm hover:shadow flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                  title="다음 장으로 넘겨 본문 열기"
+                >
+                  <span>다음 장 넘기기</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -476,15 +498,15 @@ export const BinderChassis: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* [넘김 1: 검은색 앞표지 (CoverView: z-30)] */}
-      {/* 0ms ~ 360ms 동안 우측에서 좌측으로 -180도 회전 */}
-      {/* 회전 완료 후 좌측에는 표지 뒷면(Inside Cover)이 안착하여 가만히 누워 있음 */}
+      {/* [수동 클릭 1: 검은색 앞표지 (CoverView: z-30)] */}
+      {/* 450ms 동안 우측에서 좌측으로 -180도 회전 후 Inside Cover로 안착 */}
       {/* ========================================================================= */}
       {phase !== 'opened' && (
         <CoverView
           isOpen={isCoverOpen}
           onOpen={handleOpenCover}
-          disabled={phase !== 'closed'}
+          onClose={handleCloseCover}
+          disabled={phase !== 'closed' && phase !== 'cover-opened'}
         />
       )}
     </div>
