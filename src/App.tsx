@@ -17,7 +17,7 @@ export const App: React.FC = () => {
               Plan-Do-See Diary
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-stone-200/80 text-stone-600 border border-stone-300">
-              M1: Skeleton & Cover
+              M2: Plan & Revision
             </span>
           </div>
 
