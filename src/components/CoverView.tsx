@@ -4,24 +4,19 @@ import { NoticeMemoSticky } from './NoticeMemoSticky';
 
 interface CoverViewProps {
   isOpen: boolean;
-  isAnimating: boolean;
   onOpen: () => void;
+  disabled?: boolean;
 }
 
 export const CoverView: React.FC<CoverViewProps> = ({
   isOpen,
-  isAnimating,
   onOpen,
+  disabled = false,
 }) => {
-  // 완전히 열린 후에는 속지 조작 및 잔상 차단을 위해 언마운트
-  if (isOpen && !isAnimating) {
-    return null;
-  }
-
   return (
     <div
-      className={`absolute top-0 right-0 w-[480px] h-[640px] z-30 select-none backface-hidden ${
-        isAnimating ? 'pointer-events-none' : ''
+      className={`absolute top-0 right-0 w-[480px] h-[640px] z-30 select-none ${
+        disabled ? 'pointer-events-none' : ''
       }`}
       style={{
         transformOrigin: 'left center',
@@ -30,7 +25,7 @@ export const CoverView: React.FC<CoverViewProps> = ({
         transform: isOpen ? 'rotateY(-180deg)' : 'rotateY(0deg)',
       }}
     >
-      {/* 표지 앞면 (Front Cover): 0°~90° 구간에서만 보이고, 90° 이상 회전 시 backface-hidden에 의해 자연 소멸 */}
+      {/* ---------------- 표지 앞면 (Front Cover) ---------------- */}
       <div
         className="absolute inset-0 w-full h-full rounded-r-xl border-y-4 border-r-4 border-[#2E2A27]/80 flex flex-col items-center justify-between p-8 text-stone-200 backface-hidden shadow-2xl"
         style={{
@@ -40,7 +35,7 @@ export const CoverView: React.FC<CoverViewProps> = ({
           WebkitBackfaceVisibility: 'hidden',
         }}
       >
-        {/* 상단 은은한 음각 타이틀 (roles.coverTitle) */}
+        {/* 상단 은은한 음각 타이틀 */}
         <div className="pt-6 text-center">
           <div className="text-[0.875rem] font-mono font-medium tracking-[0.25em] uppercase text-stone-400/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
             PLAN-DO-SEE DIARY
@@ -55,7 +50,7 @@ export const CoverView: React.FC<CoverViewProps> = ({
           <OpenPadlockIllustration />
 
           {/* T06-C82 필수 안내 포스트잇 */}
-          <NoticeMemoSticky onOpen={onOpen} disabled={isOpen || isAnimating} />
+          <NoticeMemoSticky onOpen={onOpen} disabled={disabled || isOpen} />
         </div>
 
         {/* 하단 미니멀 브랜드 레이블 */}
@@ -63,6 +58,30 @@ export const CoverView: React.FC<CoverViewProps> = ({
           <span className="text-[11px] font-mono tracking-wider text-stone-500/80">
             PRIVATE LOCAL MEMORY
           </span>
+        </div>
+      </div>
+
+      {/* ---------------- 표지 뒷면 (Inside Cover): 180도 회전했을 때 좌측에 보이는 하드커버 안쪽 ---------------- */}
+      <div
+        className="absolute inset-0 w-full h-full rounded-l-xl border-y-4 border-l-4 border-[#2E2A27]/80 flex flex-col items-center justify-center p-8 text-stone-300 backface-hidden shadow-inner"
+        style={{
+          backgroundColor: 'var(--color-cover)',
+          transform: 'rotateY(180deg)',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+        }}
+      >
+        <div className="w-full h-full border border-stone-600/30 rounded-lg p-6 flex flex-col justify-between bg-stone-900/40">
+          <div className="text-xs font-mono text-stone-400">
+            <div>INSIDE COVER</div>
+            <div className="text-[10px] text-stone-500 mt-1">PLAN-DO-SEE NOTEBOOK</div>
+          </div>
+          <div className="text-center font-handwriting text-stone-400 text-lg">
+            "생각을 기록하고, 행동을 살피며, 삶을 반추하다"
+          </div>
+          <div className="text-[10px] font-mono text-stone-500 text-right">
+            ALEPH-06 • SYSTEM
+          </div>
         </div>
       </div>
     </div>

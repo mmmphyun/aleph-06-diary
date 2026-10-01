@@ -13,11 +13,11 @@ import { BookMarked, RotateCw, Sparkles, RefreshCcw, Layers, BookOpen } from 'lu
 
 type FlipPhase =
   | 'closed'        // 닫힌 상태 (좌: 데스크 메모지, 우: 닫힌 앞표지)
-  | 'opening-cover' // 1단계: 앞표지 열림 (0ms ~ 360ms)
-  | 'flipping-leaf' // 2단계: 첫 번째 속지 책장 넘김 (360ms ~ 720ms)
+  | 'opening-cover' // [넘김 1] 검은색 앞표지만 열기 (0ms ~ 360ms) -> 좌: 표지 안쪽(Inside Cover), 우: 첫 번째 흰색 내지
+  | 'flipping-leaf' // [넘김 2] 흰색 내지만 왼쪽으로 넘기기 (360ms ~ 720ms) -> 좌: 좌측 본문, 우: 우측 타임라인
   | 'opened'        // 완전 개방 상태 (양면 속지 상호작용)
-  | 'closing-leaf'  // 닫기 1단계: 속지 넘겨 덮기 (0ms ~ 300ms)
-  | 'closing-cover';// 닫기 2단계: 앞표지 덮기 (300ms ~ 600ms)
+  | 'closing-leaf'  // 닫기 1단계: 흰색 내지만 우측으로 되덮기 (0ms ~ 300ms)
+  | 'closing-cover';// 닫기 2단계: 검은색 앞표지 덮기 (300ms ~ 600ms)
 
 export const BinderChassis: React.FC = () => {
   const [phase, setPhase] = useState<FlipPhase>('closed');
@@ -56,40 +56,39 @@ export const BinderChassis: React.FC = () => {
   }, [loadPlanData]);
 
   /**
-   * 자동 연쇄 2단 플립 (Auto-Chained Sequential Flip)
-   * - Step 1 (0ms ~ 360ms): 우측 앞표지가 왼쪽으로 180도 열리며 첫 번째 속지가 노출됨.
-   * - Step 2 (360ms ~ 720ms): 첫 번째 속지가 왼쪽으로 180도 넘어가며 양면 내지가 개방됨.
-   * - 720ms (완료): 속지가 좌측에 정확히 안착하는 순간 opened 상태로 전환하여 잔상 없이 본문 인계.
+   * [넘김 1 & 2 연쇄 인터랙션]
+   * 1. 0ms ~ 360ms: 앞표지만 열려 좌측에는 인사이드 커버, 우측에는 첫 번째 흰색 내지가 보임.
+   * 2. 360ms ~ 720ms: 검은색 표지는 바닥에 고정되고, 오직 우측의 흰색 내지 1장만 왼쪽으로 넘어가 본문 완성.
    */
   const handleOpenCover = () => {
     if (phase !== 'closed') return;
 
-    // Step 1: 표지 열기 시작
+    // [넘김 1] 앞표지 열기 시작
     setPhase('opening-cover');
 
-    // Step 2: 360ms 시점에 표지 안착 직후 속지 책장 넘김 연쇄 격발
+    // [넘김 2] 360ms 시점에 앞표지 안착 직후, 흰색 내지만 단독으로 넘김
     timer1Ref.current = setTimeout(() => {
       setPhase('flipping-leaf');
     }, 360);
 
-    // 완료: 720ms 시점에 속지 안착 완료 및 양면 본문 완전 활성화
+    // 완료: 720ms 시점에 양면 본문 완전 활성화
     timer2Ref.current = setTimeout(() => {
       setPhase('opened');
     }, 720);
   };
 
   /**
-   * 자동 연쇄 2단 닫기 인터랙션
-   * - Step 1 (0ms ~ 300ms): 속지 책장이 우측으로 되넘어감.
-   * - Step 2 (300ms ~ 600ms): 앞표지가 우측으로 덮이며 닫힘 완료.
+   * 닫기 인터랙션
+   * 1. 0ms ~ 300ms: 흰색 내지만 우측으로 되덮음.
+   * 2. 300ms ~ 600ms: 검은색 앞표지가 우측으로 덮이며 닫힘 완료.
    */
   const handleCloseCover = () => {
     if (phase !== 'opened') return;
 
-    // Step 1: 속지 덮기
+    // 1단계: 흰색 내지만 되덮기
     setPhase('closing-leaf');
 
-    // Step 2: 300ms 후 앞표지 덮기
+    // 2단계: 300ms 후 앞표지 덮기
     timer1Ref.current = setTimeout(() => {
       setPhase('closing-cover');
     }, 300);
@@ -116,7 +115,9 @@ export const BinderChassis: React.FC = () => {
     setPlan(null);
   };
 
+  // 표지 열림 여부 (넘김 1 완료 시점부터 닫기 2단계 전까지 열림 유지)
   const isCoverOpen = phase !== 'closed' && phase !== 'closing-cover';
+  // 흰색 속지 플립 여부
   const isLeafFlipped = phase === 'flipping-leaf' || phase === 'opened' || phase === 'closing-leaf';
 
   return (
@@ -150,7 +151,7 @@ export const BinderChassis: React.FC = () => {
       {/* [레이어 2: 펼침 상태 양면 바인더 섀시 (960×640px)] 속지 및 내지 본문 */}
       {/* ========================================================================= */}
       <div
-        className={`absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis overflow-hidden z-20 ${
+        className={`absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis overflow-hidden z-10 ${
           phase === 'closed' ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
         style={{
@@ -160,7 +161,7 @@ export const BinderChassis: React.FC = () => {
       >
         <div className="relative w-full h-full flex transform-style-preserve-3d">
           {/* ---------------- 좌측 내지 페이지 (Left Page: 480×640px) ---------------- */}
-          {/* 수정 핵심 1: 속지가 360ms에 출발할 때 조기 노출되지 않고, 720ms에 완전히 안착했을 때(opened) 노출 */}
+          {/* 두 번째 넘김(isLeafFlipped)이 완료된 후에만 본문 PlanCard 노출 */}
           <div
             className={`w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4] ${
               phase === 'opened' ? 'opacity-100' : 'opacity-0'
@@ -270,6 +271,7 @@ export const BinderChassis: React.FC = () => {
           <SpineDivider />
 
           {/* ---------------- 우측 내지 페이지 (Right Page: 480×640px) ---------------- */}
+          {/* 두 번째 넘김(isLeafFlipped) 전에는 FlipLeaf에 덮여 있고, 넘어가면 타임라인 노출 */}
           <div
             className="w-[480px] h-full p-8 flex flex-col justify-between"
             style={{
@@ -404,20 +406,23 @@ export const BinderChassis: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* [레이어 2.5: 연쇄 플립 속지 (FlipLeaf: z-25)] */}
-      {/* 수정 핵심 2 & 3: 360ms~720ms 동안 우측에서 좌측으로 넘어가며, 720ms에 opened와 오차 없이 핸드오버 */}
+      {/* [넘김 2: 흰색 내지만 넘기기 (FlipLeaf: z-25)] */}
+      {/* 검은색 표지는 이미 바닥에 깔려 있고, 오직 우측의 흰색 내지 1장만 왼쪽으로 넘김 */}
+      {/* 360ms 전: 우측에서 첫 장 표제지로 대기 (타임라인 완벽 차단) */}
+      {/* 360ms 후: 180도 회전하여 좌측의 인사이드 커버 위로 넘어가 안착 */}
       {/* ========================================================================= */}
-      {phase !== 'closed' && phase !== 'opened' && (
+      {phase !== 'closed' && (
         <div
-          className="absolute top-0 right-0 w-[480px] h-[640px] z-25 select-none pointer-events-none"
+          className={`absolute top-0 right-0 w-[480px] h-[640px] z-25 select-none pointer-events-none transition-transform duration-360 ease-in-out ${
+            phase === 'opened' ? 'hidden' : 'block'
+          }`}
           style={{
             transformOrigin: 'left center',
             transformStyle: 'preserve-3d',
-            transition: 'transform 360ms cubic-bezier(0.2, 0, 0.2, 1)',
             transform: isLeafFlipped ? 'rotateY(-180deg)' : 'rotateY(0deg)',
           }}
         >
-          {/* 속지 앞면 (Front): 표지가 열렸을 때 우측에 보이는 첫 장 표제지 */}
+          {/* 속지 앞면 (Front): 넘김 1 완료 시 우측에 보이는 첫 번째 흰색 내지 (타임라인 가림막) */}
           <div
             className="absolute inset-0 w-full h-full p-8 flex flex-col justify-between border-l border-[#E7E5E4] backface-hidden shadow-xl"
             style={{
@@ -430,21 +435,23 @@ export const BinderChassis: React.FC = () => {
               <span className="font-mono text-xs font-semibold text-stone-700">PLAN-DO-SEE</span>
               <span className="font-mono text-[11px] text-stone-400">LEAF 01</span>
             </div>
-            <div className="my-auto text-center space-y-3">
-              <BookOpen className="w-8 h-8 text-stone-400 mx-auto stroke-1" />
-              <div className="font-handwriting text-2xl text-stone-800">
-                기록과 성찰의 시간
+            <div className="my-auto text-center space-y-4">
+              <BookOpen className="w-10 h-10 text-stone-400 mx-auto stroke-1" />
+              <div className="space-y-1.5">
+                <div className="font-handwriting text-2xl text-stone-800">
+                  기록과 성찰의 시간
+                </div>
+                <p className="font-sans text-xs text-stone-500 leading-relaxed">
+                  계획을 펼치고 실행의 발자취를 이어갑니다.
+                </p>
               </div>
-              <p className="font-sans text-xs text-stone-500">
-                계획을 펼치고 실행의 발자취를 이어갑니다.
-              </p>
             </div>
             <div className="text-[10px] font-mono text-stone-400 text-right">
               ALEPH-06 DIARY
             </div>
           </div>
 
-          {/* 속지 뒷면 (Back): 왼쪽으로 넘어가며 좌측 페이지가 되는 면 (단차 0px 매칭) */}
+          {/* 속지 뒷면 (Back): 넘김 2 완료 시 좌측 페이지(PlanCard) 자리에 안착하는 종이 뒷면 */}
           <div
             className="absolute inset-0 w-full h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4] backface-hidden shadow-xl"
             style={{
@@ -469,15 +476,17 @@ export const BinderChassis: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* [레이어 3: 3D 앞표지 (CoverView: z-30)] */}
-      {/* 0ms ~ 360ms 동안 우측에서 좌측으로 -180도 회전하며 1단계 언폴드 수행 */}
-      {/* 360ms에 좌측 바닥에 닿는 순간 속지(z-25) 아래로 자연스럽게 위치하도록 z-index 정돈 */}
+      {/* [넘김 1: 검은색 앞표지 (CoverView: z-30)] */}
+      {/* 0ms ~ 360ms 동안 우측에서 좌측으로 -180도 회전 */}
+      {/* 회전 완료 후 좌측에는 표지 뒷면(Inside Cover)이 안착하여 가만히 누워 있음 */}
       {/* ========================================================================= */}
-      <CoverView
-        isOpen={isCoverOpen}
-        isAnimating={phase === 'opening-cover' || phase === 'closing-cover'}
-        onOpen={handleOpenCover}
-      />
+      {phase !== 'opened' && (
+        <CoverView
+          isOpen={isCoverOpen}
+          onOpen={handleOpenCover}
+          disabled={phase !== 'closed'}
+        />
+      )}
     </div>
   );
 };
