@@ -12,7 +12,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onAction }) => {
         <PencilLine className="w-7 h-7 stroke-[1.5]" />
       </div>
 
-      <div className="font-mono text-sm font-medium text-stone-700 mb-1">
+      <div className="font-sans text-sm font-semibold text-stone-700 mb-1">
         아직 작성된 계획이 없습니다
       </div>
 
@@ -24,7 +24,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onAction }) => {
         <button
           type="button"
           onClick={onAction}
-          className="flex items-center gap-1.5 px-4 py-2 bg-stone-800 hover:bg-stone-900 active:scale-95 text-stone-100 rounded text-xs font-mono transition-all shadow-sm"
+          className="flex items-center gap-1.5 px-4 py-2 bg-stone-800 hover:bg-stone-900 active:scale-95 text-stone-100 rounded text-xs font-sans font-medium transition-all shadow-sm"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>새 계획 작성하기</span>

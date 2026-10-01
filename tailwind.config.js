@@ -29,7 +29,7 @@ export default {
       },
       fontFamily: {
         sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'D2Coding', 'ui-monospace', 'monospace'],
+        mono: ['JetBrains Mono', 'D2Coding', 'ui-monospace', 'Pretendard', 'sans-serif'],
         handwriting: ['var(--selected-font)', 'cursive', 'sans-serif'],
         'handwriting-normal': ['NormalHandwriting', 'cursive', 'sans-serif'],
         'handwriting-adult': ['AdultHandwriting', 'cursive', 'sans-serif'],

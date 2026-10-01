@@ -26,7 +26,7 @@ export const PersonalizationToolbar: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex items-center gap-2 text-xs font-mono select-none">
+    <div className="flex items-center gap-2 text-xs font-sans font-medium select-none">
       {/* 테마 셀렉터 */}
       <div className="relative" ref={themeRef}>
         <button

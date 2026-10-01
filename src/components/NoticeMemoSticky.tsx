@@ -31,7 +31,7 @@ export const NoticeMemoSticky: React.FC<NoticeMemoStickyProps> = ({ onOpen, disa
           type="button"
           onClick={onOpen}
           disabled={disabled}
-          className="group flex items-center gap-2 px-4 py-2 bg-stone-800 hover:bg-stone-900 active:scale-95 text-stone-100 rounded-md text-xs font-mono transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          className="group flex items-center gap-2 px-4 py-2 bg-stone-800 hover:bg-stone-900 active:scale-95 text-stone-100 rounded-md text-xs font-sans font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
         >
           <BookOpen className="w-3.5 h-3.5 transition-transform group-hover:scale-110" />
           <span>다이어리 열기 →</span>

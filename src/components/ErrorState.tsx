@@ -29,7 +29,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
           <AlertCircle className="w-6 h-6 stroke-[2]" />
         </div>
 
-        <div className="font-mono text-sm font-semibold text-stone-900 mb-1">
+        <div className="font-sans text-sm font-semibold text-stone-900 mb-1">
           기록 동기화 실패
         </div>
 
@@ -41,7 +41,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
           <button
             type="button"
             onClick={onRetry}
-            className="flex items-center gap-2 px-4 py-2 bg-stone-900 hover:bg-stone-800 active:scale-95 text-stone-100 rounded text-xs font-mono transition-all shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-stone-900 hover:bg-stone-800 active:scale-95 text-stone-100 rounded text-xs font-sans font-medium transition-all shadow-sm"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>다시 시도하기</span>
