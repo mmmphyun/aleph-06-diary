@@ -35,6 +35,10 @@
   --color-memo-text: #823831;
   --color-done-badge: #4A6B82;
   --selected-font: 'NormalHandwriting';
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .perspective-1400 {
