@@ -77,16 +77,22 @@ export const BinderChassis: React.FC = () => {
 
   return (
     <div className="relative">
-      {/* 바인더 섀시 본체 (960×640px 1.5:1 고정 규격) */}
+      {/* 바인더 섀시 본체 (닫힘: 480×640px 단면 표지 / 열림: 960×640px 양면 바인더) */}
       <div
-        className="relative w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis perspective-1400 overflow-hidden"
+        className={`relative h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis perspective-1400 overflow-hidden transition-all duration-700 ease-in-out ${
+          isOpen || isAnimating ? 'w-[960px]' : 'w-[480px]'
+        }`}
         style={{
           backgroundColor: 'var(--color-cover)',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
         }}
       >
         {/* 양면 내지 속지 컨테이너 (왼쪽 480px + 오른쪽 480px = 960px) */}
-        <div className="relative w-full h-full flex transform-style-preserve-3d">
+        <div
+          className={`relative w-[960px] h-full flex transform-style-preserve-3d transition-opacity duration-300 ${
+            isOpen || isAnimating ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+        >
           {/* ========================================================================= */}
           {/* 좌측 내지 페이지 (Left Page: 480×640px) */}
           {/* ========================================================================= */}

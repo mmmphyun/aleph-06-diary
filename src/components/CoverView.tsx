@@ -13,6 +13,11 @@ export const CoverView: React.FC<CoverViewProps> = ({
   isAnimating,
   onOpen,
 }) => {
+  // 다이어리가 완전히 열린 상태(애니메이션 종료 후)에서는 양면 내지 조작을 위해 커버를 비활성화
+  if (isOpen && !isAnimating) {
+    return null;
+  }
+
   return (
     <div
       className={`absolute top-0 right-0 w-[480px] h-[640px] z-30 select-none ${
@@ -35,9 +40,7 @@ export const CoverView: React.FC<CoverViewProps> = ({
       >
         {/* 상단 은은한 음각 타이틀 (roles.coverTitle) */}
         <div className="pt-6 text-center">
-          <div
-            className="text-[0.875rem] font-mono font-medium tracking-[0.25em] uppercase text-stone-400/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]"
-          >
+          <div className="text-[0.875rem] font-mono font-medium tracking-[0.25em] uppercase text-stone-400/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
             PLAN-DO-SEE DIARY
           </div>
           <div className="text-[10px] font-mono tracking-widest text-stone-500 mt-1">

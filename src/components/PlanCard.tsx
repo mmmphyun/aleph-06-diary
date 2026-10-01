@@ -192,8 +192,8 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
             </span>
           </div>
 
-          {/* 줄노트 가로선 배경 컨테이너 (h-[240px]) */}
-          <div className="h-[240px] rounded border border-stone-200 bg-white/60 bg-ruled-lines p-3 overflow-y-auto">
+          {/* 줄노트 가로선 배경 컨테이너 (h-[240px], 스크롤 배제) */}
+          <div className="h-[240px] rounded border border-stone-200 bg-white/60 bg-ruled-lines p-3 overflow-hidden select-none">
             {plan.criteria.length === 0 ? (
               <div className="h-full flex items-center justify-center font-sans text-xs text-stone-400">
                 등록된 성공 기준이 없습니다.
