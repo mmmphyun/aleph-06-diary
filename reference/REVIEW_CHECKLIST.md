@@ -20,7 +20,8 @@
   - 4종 테마 전환 시 `colors.json` 토큰이 즉시 CSS 변수에 반영되고 `localStorage('diary_theme')`에 저장되는가?
   - 3종 손글씨 폰트 전환이 동작하며 `localStorage('diary_font_preference')`에 즉시 보존되는가?
 - [ ] **타이포그래피 및 폰트 로딩**:
-  - 시스템 데이터/UI(버튼, 타이틀, 시스템 메시지)는 `font-mono`/`font-sans`를 사용하는가?
+  - 순수 영문/숫자(표지 타이틀, 타임스탬프, 페이지 번호)에만 `font-mono`가 사용되었는가?
+  - 한글 UI(버튼, 탭, 상태 인디케이터 "기록 중...", 에러 메시지)는 전원 `font-sans`(Pretendard)로 렌더링되어 굴림체(GulimChe) 비트맵 픽셀 계단이 차단되었는가?
   - 사용자 필기 영역(표지 메모 문구)에만 손글씨 폰트가 적용되는가?
   - `@font-face`에 `font-display: swap;`이 선언되어 렌더링 블로킹을 방지하는가?
 - [ ] **2.5D 인터랙션 및 상태**:
