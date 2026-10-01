@@ -13,7 +13,7 @@ export const LoadingState: React.FC = () => {
         <span className="absolute -bottom-1 w-1.5 h-1.5 bg-stone-600 rounded-full animate-ping opacity-60" />
       </div>
 
-      <div className="font-mono text-sm font-medium text-stone-700 tracking-wider">
+      <div className="font-sans text-sm font-semibold text-stone-700 tracking-wider">
         기록 중...
       </div>
       <div className="font-sans text-[11px] text-stone-400 mt-1">
