@@ -9,15 +9,20 @@ import { RevisionTimeline } from './RevisionTimeline';
 import { DeskMemoSheet } from './DeskMemoSheet';
 import { Plan } from '../types/plan';
 import { planService } from '../services/planService';
-import { BookMarked, RotateCw, Sparkles, RefreshCcw, Layers } from 'lucide-react';
+import { BookMarked, RotateCw, Sparkles, RefreshCcw, Layers, BookOpen } from 'lucide-react';
+
+type FlipPhase =
+  | 'closed'        // 닫힌 상태 (좌: 데스크 메모지, 우: 닫힌 앞표지)
+  | 'opening-cover' // 1단계: 앞표지 열림 (0ms ~ 360ms)
+  | 'flipping-leaf' // 2단계: 첫 번째 속지 책장 넘김 (360ms ~ 720ms)
+  | 'opened'        // 완전 개방 상태 (양면 속지 상호작용)
+  | 'closing-leaf'  // 닫기 1단계: 속지 넘겨 덮기 (0ms ~ 300ms)
+  | 'closing-cover';// 닫기 2단계: 앞표지 덮기 (300ms ~ 600ms)
 
 export const BinderChassis: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-
-  // 좌측 내지 노출 타이밍 제어 (350ms 표지 통과 시점 동기화)
-  const [showLeftPage, setShowLeftPage] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [phase, setPhase] = useState<FlipPhase>('closed');
+  const timer1Ref = useRef<NodeJS.Timeout | null>(null);
+  const timer2Ref = useRef<NodeJS.Timeout | null>(null);
 
   // M2 계획 데이터 상태
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -45,47 +50,53 @@ export const BinderChassis: React.FC = () => {
   useEffect(() => {
     loadPlanData();
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      if (timer1Ref.current) clearTimeout(timer1Ref.current);
+      if (timer2Ref.current) clearTimeout(timer2Ref.current);
     };
   }, [loadPlanData]);
 
   /**
-   * 다이어리 열기 인터랙션
-   * - 0ms: 표지 회전 시작 (rotateY 0° -> -90°). 우측 내지가 즉시 드러남.
-   * - 350ms: 표지가 90도를 넘어 좌측 영역으로 진입하는 순간 좌측 메모지 소멸 & 좌측 내지 활성화.
-   * - 700ms: 표지 회전 완료 및 CoverView DOM 즉시 언마운트 (잔상 0ms).
+   * 자동 연쇄 2단 플립 (Auto-Chained Sequential Flip) 열기 인터랙션
+   * - Step 1 (0ms ~ 360ms): 우측 앞표지가 왼쪽으로 180도 언폴드되며 첫 번째 속지가 드러남.
+   * - Step 2 (360ms ~ 720ms): 첫 번째 속지가 차르륵 왼쪽으로 넘어가며 양면 내지 본문이 개방됨.
+   * - 페이드인/페이드아웃 눈속임 없이 100% 물리 책장 넘김으로 완성.
    */
   const handleOpenCover = () => {
-    if (isAnimating || isOpen) return;
-    setIsAnimating(true);
-    setIsOpen(true);
+    if (phase !== 'closed') return;
 
-    timerRef.current = setTimeout(() => {
-      setShowLeftPage(true);
-    }, 350);
+    // Step 1: 표지 열기 시작
+    setPhase('opening-cover');
 
-    setTimeout(() => {
-      setIsAnimating(false);
-    }, 700);
+    // Step 2: 360ms 후 표지가 닿자마자 속지 책장 넘김 연쇄 격발
+    timer1Ref.current = setTimeout(() => {
+      setPhase('flipping-leaf');
+    }, 360);
+
+    // 완료: 720ms 후 양면 바인더 본문 완전 활성화
+    timer2Ref.current = setTimeout(() => {
+      setPhase('opened');
+    }, 720);
   };
 
   /**
-   * 다이어리 닫기 인터랙션
-   * - 0ms: 표지 닫힘 회전 시작 (rotateY -180° -> 0°).
-   * - 300ms: 표지가 우측으로 덮여갈 때 좌측 데스크 메모지 복귀.
-   * - 600ms: 닫힌 다이어리 고정.
+   * 자동 연쇄 2단 닫기 인터랙션
+   * - Step 1 (0ms ~ 300ms): 속지 책장이 우측으로 되넘어감.
+   * - Step 2 (300ms ~ 600ms): 앞표지가 우측으로 덮이며 닫힘 완료.
    */
   const handleCloseCover = () => {
-    if (isAnimating || !isOpen) return;
-    setIsAnimating(true);
-    setIsOpen(false);
+    if (phase !== 'opened') return;
 
-    timerRef.current = setTimeout(() => {
-      setShowLeftPage(false);
+    // Step 1: 속지 덮기
+    setPhase('closing-leaf');
+
+    // Step 2: 300ms 후 앞표지 덮기
+    timer1Ref.current = setTimeout(() => {
+      setPhase('closing-cover');
     }, 300);
 
-    setTimeout(() => {
-      setIsAnimating(false);
+    // 완료: 600ms 후 닫힌 상태 고정
+    timer2Ref.current = setTimeout(() => {
+      setPhase('closed');
     }, 600);
   };
 
@@ -105,16 +116,20 @@ export const BinderChassis: React.FC = () => {
     setPlan(null);
   };
 
+  const isAnimating = phase !== 'closed' && phase !== 'opened';
+  const isCoverOpen = phase !== 'closed' && phase !== 'closing-cover';
+  const isLeafFlipped = phase === 'flipping-leaf' || phase === 'opened' || phase === 'closing-leaf';
+
   return (
     <div className="relative w-[960px] h-[640px] perspective-1400">
       {/* ========================================================================= */}
       {/* [레이어 1: 닫힘 상태 베이스] 좌측 데스크 메모지 + 우측 닫힌 단권 다이어리 베이스 */}
       {/* ========================================================================= */}
       <div className="absolute inset-0 w-full h-full flex items-center justify-between pointer-events-none">
-        {/* 좌측 480px: 순수 웜스톤 데스크 위의 단독 메모지 (350ms 교차 시점에 페이드 전환) */}
+        {/* 좌측 480px: 순수 웜스톤 데스크 위의 단독 메모지 */}
         <div
-          className={`w-[480px] h-[640px] flex items-center justify-center p-4 transition-opacity duration-200 ${
-            showLeftPage ? 'opacity-0' : 'opacity-100 pointer-events-auto'
+          className={`w-[480px] h-[640px] flex items-center justify-center p-4 transition-opacity duration-300 ${
+            phase === 'closed' ? 'opacity-100 pointer-events-auto' : 'opacity-0'
           }`}
         >
           <DeskMemoSheet />
@@ -123,7 +138,7 @@ export const BinderChassis: React.FC = () => {
         {/* 우측 480px: 닫힌 독립 다이어리 1권의 하드커버 베이스 */}
         <div
           className={`w-[480px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis relative transition-opacity duration-300 ${
-            isOpen ? 'opacity-0' : 'opacity-100'
+            phase === 'closed' ? 'opacity-100' : 'opacity-0'
           }`}
           style={{
             backgroundColor: 'var(--color-cover)',
@@ -133,11 +148,11 @@ export const BinderChassis: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* [레이어 2: 펼침 상태 양면 바인더 섀시 (960×640px)] 속지 및 내지 컨트롤 */}
+      {/* [레이어 2: 펼침 상태 양면 바인더 섀시 (960×640px)] 속지 및 내지 본문 */}
       {/* ========================================================================= */}
       <div
-        className={`absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis overflow-hidden transition-opacity duration-300 z-20 ${
-          isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        className={`absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis overflow-hidden z-20 ${
+          phase === 'closed' ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
         style={{
           backgroundColor: 'var(--color-cover)',
@@ -146,9 +161,10 @@ export const BinderChassis: React.FC = () => {
       >
         <div className="relative w-full h-full flex transform-style-preserve-3d">
           {/* ---------------- 좌측 내지 페이지 (Left Page: 480×640px) ---------------- */}
+          {/* 2단계 속지가 넘어와 안착하는 순간(opened) 또는 넘어가는 동안 배경으로 온전히 자리잡음 */}
           <div
-            className={`w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4] transition-opacity duration-200 ${
-              showLeftPage ? 'opacity-100' : 'opacity-0'
+            className={`w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4] ${
+              isLeafFlipped ? 'opacity-100' : 'opacity-0'
             }`}
             style={{
               backgroundColor: 'var(--color-paper)',
@@ -238,12 +254,11 @@ export const BinderChassis: React.FC = () => {
             {/* 좌측 페이지 하단: 표지 닫기 */}
             <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
               <span className="font-mono text-[10px] text-stone-400">PAGE 01</span>
-              {isOpen && (
+              {phase === 'opened' && (
                 <button
                   type="button"
                   onClick={handleCloseCover}
-                  disabled={isAnimating}
-                  className="px-3 py-1 rounded bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 font-sans font-medium text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 shadow-xs"
+                  className="px-3 py-1 rounded bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 font-sans font-medium text-xs transition-colors flex items-center gap-1.5 shadow-xs"
                 >
                   <RotateCw className="w-3 h-3" />
                   <span>표지 닫기</span>
@@ -390,10 +405,70 @@ export const BinderChassis: React.FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* [레이어 3: 3D 언폴드 표지 (z-30)] */}
+      {/* [레이어 2.5: 연쇄 플립 속지 (FlipLeaf: z-25)] */}
+      {/* 표지가 열린 직후 360ms 시점에 우측에서 좌측으로 차르륵 넘어가는 실제 종이 리프 */}
+      {/* ========================================================================= */}
+      {phase !== 'closed' && phase !== 'opened' && (
+        <div
+          className="absolute top-0 right-0 w-[480px] h-[640px] z-25 select-none pointer-events-none"
+          style={{
+            transformOrigin: 'left center',
+            transformStyle: 'preserve-3d',
+            transition: 'transform 360ms cubic-bezier(0.2, 0, 0.2, 1)',
+            transform: isLeafFlipped ? 'rotateY(-180deg)' : 'rotateY(0deg)',
+          }}
+        >
+          {/* 속지 앞면 (Front): 표지가 열렸을 때 우측에 보이는 첫 장 표제지 */}
+          <div
+            className="absolute inset-0 w-full h-full p-8 flex flex-col justify-between border-l border-[#E7E5E4] backface-hidden shadow-xl"
+            style={{
+              backgroundColor: 'var(--color-paper)',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+            }}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+              <span className="font-mono text-xs font-semibold text-stone-700">PLAN-DO-SEE</span>
+              <span className="font-mono text-[11px] text-stone-400">LEAF 01</span>
+            </div>
+            <div className="my-auto text-center space-y-3">
+              <BookOpen className="w-8 h-8 text-stone-400 mx-auto stroke-1" />
+              <div className="font-handwriting text-2xl text-stone-800">
+                기록과 성찰의 시간
+              </div>
+              <p className="font-sans text-xs text-stone-500">
+                계획을 펼치고 실행의 발자취를 이어갑니다.
+              </p>
+            </div>
+            <div className="text-[10px] font-mono text-stone-400 text-right">
+              ALEPH-06 DIARY
+            </div>
+          </div>
+
+          {/* 속지 뒷면 (Back): 왼쪽으로 넘어가며 좌측 페이지가 되는 면 */}
+          <div
+            className="absolute inset-0 w-full h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4] backface-hidden shadow-xl"
+            style={{
+              backgroundColor: 'var(--color-paper)',
+              transform: 'rotateY(180deg)',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+            }}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+              <span className="font-mono text-xs font-semibold text-stone-700">PLAN-DO-SEE</span>
+              <span className="font-mono text-[11px] text-stone-400">PAGE 01</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* [레이어 3: 3D 앞표지 (CoverView: z-30)] */}
+      {/* 0ms ~ 360ms 동안 우측에서 좌측으로 -180도 회전하며 1단계 언폴드 수행 */}
       {/* ========================================================================= */}
       <CoverView
-        isOpen={isOpen}
+        isOpen={isCoverOpen}
         isAnimating={isAnimating}
         onOpen={handleOpenCover}
       />

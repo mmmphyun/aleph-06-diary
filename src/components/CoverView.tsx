@@ -13,7 +13,7 @@ export const CoverView: React.FC<CoverViewProps> = ({
   isAnimating,
   onOpen,
 }) => {
-  // 완전히 열린 후에는 잔상이나 클릭 간섭을 원천 차단하기 위해 렌더링에서 즉시 배제
+  // 완전히 열린 후에는 속지 조작 및 잔상 차단을 위해 언마운트
   if (isOpen && !isAnimating) {
     return null;
   }
@@ -26,11 +26,11 @@ export const CoverView: React.FC<CoverViewProps> = ({
       style={{
         transformOrigin: 'left center',
         transformStyle: 'preserve-3d',
-        transition: 'transform 700ms cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'transform 360ms cubic-bezier(0.2, 0, 0.2, 1)',
         transform: isOpen ? 'rotateY(-180deg)' : 'rotateY(0deg)',
       }}
     >
-      {/* 표지 앞면 (Front Cover): 0°~90° 구간에서만 보이고, 90° 이상 회전 시 backface-hidden에 의해 완전 소멸 */}
+      {/* 표지 앞면 (Front Cover): 0°~90° 구간에서만 보이고, 90° 이상 회전 시 backface-hidden에 의해 자연 소멸 */}
       <div
         className="absolute inset-0 w-full h-full rounded-r-xl border-y-4 border-r-4 border-[#2E2A27]/80 flex flex-col items-center justify-between p-8 text-stone-200 backface-hidden shadow-2xl"
         style={{
