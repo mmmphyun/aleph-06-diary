@@ -77,32 +77,44 @@ export const BinderChassis: React.FC = () => {
   };
 
   return (
-    <div className="relative">
-      {/* 바인더 섀시 본체 (960×640px 1.5:1 고정 규격, 위치 이동 없이 안정적 고정) */}
+    <div className="relative w-[960px] h-[640px] perspective-1400">
+      {/* ========================================================================= */}
+      {/* [레이어 1: 닫힘 상태 베이스] 좌측 데스크 메모지 + 우측 닫힌 단권 다이어리 (480px) */}
+      {/* 표지가 닫혀 있을 때 검은색 바인더가 좌측까지 길게 늘어나는 시각 왜곡을 원천 차단 */}
+      {/* ========================================================================= */}
       <div
-        className="relative w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis perspective-1400 overflow-hidden"
+        className={`absolute inset-0 w-full h-full flex items-center justify-between transition-opacity duration-300 ${
+          isOpen && !isAnimating ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        }`}
+      >
+        {/* 좌측 480px: 순수 웜스톤 데스크 위의 단독 메모지 (하드커버 테두리/배경 0%) */}
+        <div className="w-[480px] h-[640px] flex items-center justify-center p-4">
+          <DeskMemoSheet />
+        </div>
+
+        {/* 우측 480px: 닫힌 독립 다이어리 1권의 하드커버 베이스 */}
+        <div
+          className="w-[480px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis relative"
+          style={{
+            backgroundColor: 'var(--color-cover)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+          }}
+        />
+      </div>
+
+      {/* ========================================================================= */}
+      {/* [레이어 2: 펼침 상태 양면 바인더 섀시 (960×640px)] 속지 및 내지 컨트롤 */}
+      {/* ========================================================================= */}
+      <div
+        className={`absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis overflow-hidden transition-opacity duration-300 z-20 ${
+          isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
         style={{
           backgroundColor: 'var(--color-cover)',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
         }}
       >
-        {/* ========================================================================= */}
-        {/* 닫힘 상태 시 좌측에 노출되는 데스크 감성 메모지 */}
-        {/* ========================================================================= */}
-        {!isOpen && !isAnimating && (
-          <div className="absolute top-0 left-0 w-[480px] h-full z-10 flex items-center justify-center">
-            <DeskMemoSheet />
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* 양면 내지 속지 컨테이너 (왼쪽 480px + 오른쪽 480px = 960px) */}
-        {/* ========================================================================= */}
-        <div
-          className={`relative w-full h-full flex transform-style-preserve-3d transition-opacity duration-300 ${
-            isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}
-        >
+        <div className="relative w-full h-full flex transform-style-preserve-3d">
           {/* ---------------- 좌측 내지 페이지 (Left Page: 480×640px) ---------------- */}
           <div
             className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4]"
@@ -191,7 +203,7 @@ export const BinderChassis: React.FC = () => {
               </div>
             </div>
 
-            {/* 좌측 페이지 하단 */}
+            {/* 좌측 페이지 하단: 표지 닫기 */}
             <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
               <span className="font-mono text-[10px] text-stone-400">PAGE 01</span>
               {isOpen && (
@@ -343,16 +355,17 @@ export const BinderChassis: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* ========================================================================= */}
-        {/* View 0 (표지) 및 2.5D 인터랙션: 우측 480px 위치에서 왼쪽으로 언폴드 */}
-        {/* ========================================================================= */}
-        <CoverView
-          isOpen={isOpen}
-          isAnimating={isAnimating}
-          onOpen={handleOpenCover}
-        />
       </div>
+
+      {/* ========================================================================= */}
+      {/* [레이어 3: 3D 언폴드 표지 (z-30)] */}
+      {/* 우측 480px 위치에서 왼쪽으로 -180도 회전하며 메모지 위를 덮고 속지를 개방 */}
+      {/* ========================================================================= */}
+      <CoverView
+        isOpen={isOpen}
+        isAnimating={isAnimating}
+        onOpen={handleOpenCover}
+      />
     </div>
   );
 };
