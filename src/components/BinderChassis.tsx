@@ -6,6 +6,7 @@ import { LoadingState } from './LoadingState';
 import { ErrorState } from './ErrorState';
 import { PlanCard } from './PlanCard';
 import { RevisionTimeline } from './RevisionTimeline';
+import { DeskMemoSheet } from './DeskMemoSheet';
 import { Plan } from '../types/plan';
 import { planService } from '../services/planService';
 import { BookMarked, RotateCw, Sparkles, RefreshCcw, Layers } from 'lucide-react';
@@ -77,25 +78,32 @@ export const BinderChassis: React.FC = () => {
 
   return (
     <div className="relative">
-      {/* 바인더 섀시 본체 (닫힘: 480×640px 단면 표지 / 열림: 960×640px 양면 바인더) */}
+      {/* 바인더 섀시 본체 (960×640px 1.5:1 고정 규격, 위치 이동 없이 안정적 고정) */}
       <div
-        className={`relative h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis perspective-1400 overflow-hidden transition-all duration-700 ease-in-out ${
-          isOpen || isAnimating ? 'w-[960px]' : 'w-[480px]'
-        }`}
+        className="relative w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis perspective-1400 overflow-hidden"
         style={{
           backgroundColor: 'var(--color-cover)',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
         }}
       >
+        {/* ========================================================================= */}
+        {/* 닫힘 상태 시 좌측에 노출되는 데스크 감성 메모지 */}
+        {/* ========================================================================= */}
+        {!isOpen && !isAnimating && (
+          <div className="absolute top-0 left-0 w-[480px] h-full z-10 flex items-center justify-center">
+            <DeskMemoSheet />
+          </div>
+        )}
+
+        {/* ========================================================================= */}
         {/* 양면 내지 속지 컨테이너 (왼쪽 480px + 오른쪽 480px = 960px) */}
+        {/* ========================================================================= */}
         <div
-          className={`relative w-[960px] h-full flex transform-style-preserve-3d transition-opacity duration-300 ${
-            isOpen || isAnimating ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          className={`relative w-full h-full flex transform-style-preserve-3d transition-opacity duration-300 ${
+            isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
         >
-          {/* ========================================================================= */}
-          {/* 좌측 내지 페이지 (Left Page: 480×640px) */}
-          {/* ========================================================================= */}
+          {/* ---------------- 좌측 내지 페이지 (Left Page: 480×640px) ---------------- */}
           <div
             className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4]"
             style={{
@@ -200,14 +208,10 @@ export const BinderChassis: React.FC = () => {
             </div>
           </div>
 
-          {/* ========================================================================= */}
-          {/* 중앙 16px 제본선 음영 */}
-          {/* ========================================================================= */}
+          {/* ---------------- 중앙 16px 제본선 음영 ---------------- */}
           <SpineDivider />
 
-          {/* ========================================================================= */}
-          {/* 우측 내지 페이지 (Right Page: 480×640px) */}
-          {/* ========================================================================= */}
+          {/* ---------------- 우측 내지 페이지 (Right Page: 480×640px) ---------------- */}
           <div
             className="w-[480px] h-full p-8 flex flex-col justify-between"
             style={{
@@ -340,7 +344,9 @@ export const BinderChassis: React.FC = () => {
           </div>
         </div>
 
-        {/* View 0 (표지) 및 2.5D 인터랙션 */}
+        {/* ========================================================================= */}
+        {/* View 0 (표지) 및 2.5D 인터랙션: 우측 480px 위치에서 왼쪽으로 언폴드 */}
+        {/* ========================================================================= */}
         <CoverView
           isOpen={isOpen}
           isAnimating={isAnimating}

@@ -13,20 +13,18 @@ export const CoverView: React.FC<CoverViewProps> = ({
   isAnimating,
   onOpen,
 }) => {
-  // 다이어리가 완전히 열린 상태(애니메이션 종료 후)에서는 양면 내지 조작을 위해 커버를 비활성화
-  if (isOpen && !isAnimating) {
-    return null;
-  }
+  // 완전히 열린 후(애니메이션 완료)에는 속지 조작을 위해 투명화 및 포인터 이벤트 차단
+  const isFullyOpen = isOpen && !isAnimating;
 
   return (
     <div
-      className={`absolute top-0 right-0 w-[480px] h-[640px] z-30 select-none ${
-        isAnimating ? 'pointer-events-none' : ''
-      }`}
+      className={`absolute top-0 right-0 w-[480px] h-[640px] z-30 select-none transition-opacity duration-300 ${
+        isFullyOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+      } ${isAnimating ? 'pointer-events-none' : ''}`}
       style={{
         transformOrigin: 'left center',
         transformStyle: 'preserve-3d',
-        transition: 'transform 700ms cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: 'transform 700ms cubic-bezier(0.16, 1, 0.3, 1), opacity 300ms ease',
         transform: isOpen ? 'rotateY(-180deg)' : 'rotateY(0deg)',
       }}
     >
