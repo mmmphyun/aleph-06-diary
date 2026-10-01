@@ -56,10 +56,10 @@ export const BinderChassis: React.FC = () => {
   }, [loadPlanData]);
 
   /**
-   * 자동 연쇄 2단 플립 (Auto-Chained Sequential Flip) 열기 인터랙션
-   * - Step 1 (0ms ~ 360ms): 우측 앞표지가 왼쪽으로 180도 언폴드되며 첫 번째 속지가 드러남.
-   * - Step 2 (360ms ~ 720ms): 첫 번째 속지가 차르륵 왼쪽으로 넘어가며 양면 내지 본문이 개방됨.
-   * - 페이드인/페이드아웃 눈속임 없이 100% 물리 책장 넘김으로 완성.
+   * 자동 연쇄 2단 플립 (Auto-Chained Sequential Flip)
+   * - Step 1 (0ms ~ 360ms): 우측 앞표지가 왼쪽으로 180도 열리며 첫 번째 속지가 노출됨.
+   * - Step 2 (360ms ~ 720ms): 첫 번째 속지가 왼쪽으로 180도 넘어가며 양면 내지가 개방됨.
+   * - 720ms (완료): 속지가 좌측에 정확히 안착하는 순간 opened 상태로 전환하여 잔상 없이 본문 인계.
    */
   const handleOpenCover = () => {
     if (phase !== 'closed') return;
@@ -67,12 +67,12 @@ export const BinderChassis: React.FC = () => {
     // Step 1: 표지 열기 시작
     setPhase('opening-cover');
 
-    // Step 2: 360ms 후 표지가 닿자마자 속지 책장 넘김 연쇄 격발
+    // Step 2: 360ms 시점에 표지 안착 직후 속지 책장 넘김 연쇄 격발
     timer1Ref.current = setTimeout(() => {
       setPhase('flipping-leaf');
     }, 360);
 
-    // 완료: 720ms 후 양면 바인더 본문 완전 활성화
+    // 완료: 720ms 시점에 속지 안착 완료 및 양면 본문 완전 활성화
     timer2Ref.current = setTimeout(() => {
       setPhase('opened');
     }, 720);
@@ -116,7 +116,6 @@ export const BinderChassis: React.FC = () => {
     setPlan(null);
   };
 
-  const isAnimating = phase !== 'closed' && phase !== 'opened';
   const isCoverOpen = phase !== 'closed' && phase !== 'closing-cover';
   const isLeafFlipped = phase === 'flipping-leaf' || phase === 'opened' || phase === 'closing-leaf';
 
@@ -161,10 +160,10 @@ export const BinderChassis: React.FC = () => {
       >
         <div className="relative w-full h-full flex transform-style-preserve-3d">
           {/* ---------------- 좌측 내지 페이지 (Left Page: 480×640px) ---------------- */}
-          {/* 2단계 속지가 넘어와 안착하는 순간(opened) 또는 넘어가는 동안 배경으로 온전히 자리잡음 */}
+          {/* 수정 핵심 1: 속지가 360ms에 출발할 때 조기 노출되지 않고, 720ms에 완전히 안착했을 때(opened) 노출 */}
           <div
             className={`w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4] ${
-              isLeafFlipped ? 'opacity-100' : 'opacity-0'
+              phase === 'opened' ? 'opacity-100' : 'opacity-0'
             }`}
             style={{
               backgroundColor: 'var(--color-paper)',
@@ -406,7 +405,7 @@ export const BinderChassis: React.FC = () => {
 
       {/* ========================================================================= */}
       {/* [레이어 2.5: 연쇄 플립 속지 (FlipLeaf: z-25)] */}
-      {/* 표지가 열린 직후 360ms 시점에 우측에서 좌측으로 차르륵 넘어가는 실제 종이 리프 */}
+      {/* 수정 핵심 2 & 3: 360ms~720ms 동안 우측에서 좌측으로 넘어가며, 720ms에 opened와 오차 없이 핸드오버 */}
       {/* ========================================================================= */}
       {phase !== 'closed' && phase !== 'opened' && (
         <div
@@ -445,7 +444,7 @@ export const BinderChassis: React.FC = () => {
             </div>
           </div>
 
-          {/* 속지 뒷면 (Back): 왼쪽으로 넘어가며 좌측 페이지가 되는 면 */}
+          {/* 속지 뒷면 (Back): 왼쪽으로 넘어가며 좌측 페이지가 되는 면 (단차 0px 매칭) */}
           <div
             className="absolute inset-0 w-full h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4] backface-hidden shadow-xl"
             style={{
@@ -459,6 +458,12 @@ export const BinderChassis: React.FC = () => {
               <span className="font-mono text-xs font-semibold text-stone-700">PLAN-DO-SEE</span>
               <span className="font-mono text-[11px] text-stone-400">PAGE 01</span>
             </div>
+            <div className="my-auto text-center space-y-2 text-stone-400">
+              <div className="font-mono text-xs">LOADING PLAN VIEW...</div>
+            </div>
+            <div className="text-[10px] font-mono text-stone-400 text-right">
+              PAGE 01
+            </div>
           </div>
         </div>
       )}
@@ -466,10 +471,11 @@ export const BinderChassis: React.FC = () => {
       {/* ========================================================================= */}
       {/* [레이어 3: 3D 앞표지 (CoverView: z-30)] */}
       {/* 0ms ~ 360ms 동안 우측에서 좌측으로 -180도 회전하며 1단계 언폴드 수행 */}
+      {/* 360ms에 좌측 바닥에 닿는 순간 속지(z-25) 아래로 자연스럽게 위치하도록 z-index 정돈 */}
       {/* ========================================================================= */}
       <CoverView
         isOpen={isCoverOpen}
-        isAnimating={isAnimating}
+        isAnimating={phase === 'opening-cover' || phase === 'closing-cover'}
         onOpen={handleOpenCover}
       />
     </div>
