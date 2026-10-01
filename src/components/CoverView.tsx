@@ -13,27 +13,31 @@ export const CoverView: React.FC<CoverViewProps> = ({
   isAnimating,
   onOpen,
 }) => {
-  // 완전히 열린 후(애니메이션 완료)에는 속지 조작을 위해 커버를 비활성화
-  const isFullyOpen = isOpen && !isAnimating;
+  // 완전히 열린 후에는 잔상이나 클릭 간섭을 원천 차단하기 위해 렌더링에서 즉시 배제
+  if (isOpen && !isAnimating) {
+    return null;
+  }
 
   return (
     <div
-      className={`absolute top-0 right-0 w-[480px] h-[640px] z-30 select-none ${
-        isFullyOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
-      } ${isAnimating ? 'pointer-events-none' : ''}`}
+      className={`absolute top-0 right-0 w-[480px] h-[640px] z-30 select-none backface-hidden ${
+        isAnimating ? 'pointer-events-none' : ''
+      }`}
       style={{
         transformOrigin: 'left center',
         transformStyle: 'preserve-3d',
-        transition: 'transform 700ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease',
+        transition: 'transform 700ms cubic-bezier(0.16, 1, 0.3, 1)',
         transform: isOpen ? 'rotateY(-180deg)' : 'rotateY(0deg)',
       }}
     >
-      {/* 표지 앞면 (Front Cover): 0°~90° 구간에서만 보이고, 90° 이상 회전 시 backface-hidden에 의해 자연 소멸 */}
+      {/* 표지 앞면 (Front Cover): 0°~90° 구간에서만 보이고, 90° 이상 회전 시 backface-hidden에 의해 완전 소멸 */}
       <div
         className="absolute inset-0 w-full h-full rounded-r-xl border-y-4 border-r-4 border-[#2E2A27]/80 flex flex-col items-center justify-between p-8 text-stone-200 backface-hidden shadow-2xl"
         style={{
           backgroundColor: 'var(--color-cover)',
           boxShadow: 'inset 4px 0 10px rgba(0,0,0,0.4), 10px 0 25px rgba(0,0,0,0.3)',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
         }}
       >
         {/* 상단 은은한 음각 타이틀 (roles.coverTitle) */}
