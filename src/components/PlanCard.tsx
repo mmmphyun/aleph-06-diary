@@ -12,6 +12,8 @@ import {
   Check,
   AlertCircle,
   Undo2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface PlanCardProps {
@@ -19,9 +21,15 @@ interface PlanCardProps {
   onPlanUpdated: (updatedPlan: Plan) => void;
 }
 
+const CRITERIA_PER_PAGE = 5;
+
 export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
+
+  // 무스크롤 페이지네이션 상태 (책 메타포: 5개 단위 쪽 넘김)
+  const [readPage, setReadPage] = useState(1);
+  const [editPage, setEditPage] = useState(1);
 
   // 인라인 수정 폼 상태
   const [editTitle, setEditTitle] = useState(plan.title);
@@ -44,6 +52,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
     setEditCriteria([...plan.criteria]);
     setNewCriterionInput('');
     setFormError(null);
+    setEditPage(1);
     setIsEditing(true);
   };
 
@@ -62,12 +71,21 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
   const handleAddCriterion = () => {
     const trimmed = newCriterionInput.trim();
     if (!trimmed) return;
-    setEditCriteria((prev) => [...prev, trimmed]);
+    const updated = [...editCriteria, trimmed];
+    setEditCriteria(updated);
     setNewCriterionInput('');
+    // 새 항목 추가 시 해당 항목이 속한 페이지로 이동
+    const targetPage = Math.ceil(updated.length / CRITERIA_PER_PAGE);
+    setEditPage(targetPage);
   };
 
   const handleRemoveCriterion = (index: number) => {
-    setEditCriteria((prev) => prev.filter((_, idx) => idx !== index));
+    const updated = editCriteria.filter((_, idx) => idx !== index);
+    setEditCriteria(updated);
+    const maxPage = Math.max(1, Math.ceil(updated.length / CRITERIA_PER_PAGE));
+    if (editPage > maxPage) {
+      setEditPage(maxPage);
+    }
   };
 
   const handleSavePlan = async (e: React.FormEvent) => {
@@ -103,6 +121,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
       const result = await planService.updatePlan(plan.id, updates);
       onPlanUpdated(result.plan);
       setIsEditing(false);
+      setReadPage(1);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : '수정 중 오류가 발생했습니다.');
     } finally {
@@ -128,11 +147,27 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
 
   const estimatedMinutes = plan.estimatedHours * 60;
 
+  // 읽기 모드 페이지 분할
+  const totalReadPages = Math.max(1, Math.ceil(plan.criteria.length / CRITERIA_PER_PAGE));
+  const readStartIndex = (readPage - 1) * CRITERIA_PER_PAGE;
+  const currentReadCriteria = plan.criteria.slice(
+    readStartIndex,
+    readStartIndex + CRITERIA_PER_PAGE
+  );
+
+  // 편집 모드 페이지 분할
+  const totalEditPages = Math.max(1, Math.ceil(editCriteria.length / CRITERIA_PER_PAGE));
+  const editStartIndex = (editPage - 1) * CRITERIA_PER_PAGE;
+  const currentEditCriteria = editCriteria.slice(
+    editStartIndex,
+    editStartIndex + CRITERIA_PER_PAGE
+  );
+
   return (
     <div className="relative flex flex-col justify-between h-full">
       {!isEditing ? (
         /* ========================================================================= */
-        /* [읽기 모드] 줄노트 위 계획 카드 */
+        /* [읽기 모드] 줄노트 위 계획 카드 (5건 무스크롤 페이징) */
         /* ========================================================================= */
         <div className="space-y-4">
           {/* 상단 메타 바 */}
@@ -202,51 +237,81 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
               </span>
             </div>
 
-            {/* 줄노트 가로선 배경 컨테이너 (h-[240px], 스크롤 배제) */}
-            <div className="h-[240px] rounded border border-stone-200 bg-white/60 bg-ruled-lines p-3 overflow-hidden select-none">
+            {/* 줄노트 가로선 배경 컨테이너 (h-[240px], 스크롤 완전 배제, 5건 단위 페이징) */}
+            <div className="h-[240px] rounded border border-stone-200 bg-white/60 bg-ruled-lines p-3 overflow-hidden select-none flex flex-col justify-between">
               {plan.criteria.length === 0 ? (
                 <div className="h-full flex items-center justify-center font-sans text-xs text-stone-400">
                   등록된 성공 기준이 없습니다.
                 </div>
               ) : (
-                <ul className="space-y-0">
-                  {plan.criteria.map((criterion, idx) => {
-                    const isChecked = !!checkedItems[idx];
-                    return (
-                      <li
-                        key={idx}
-                        className="h-8 flex items-center gap-2.5 px-1 text-stone-800 text-sm font-handwriting select-none cursor-pointer group"
-                        onClick={() => handleToggleCheck(idx)}
+                <>
+                  <ul className="space-y-0 flex-1">
+                    {currentReadCriteria.map((criterion, idx) => {
+                      const absoluteIndex = readStartIndex + idx;
+                      const isChecked = !!checkedItems[absoluteIndex];
+                      return (
+                        <li
+                          key={absoluteIndex}
+                          className="h-8 flex items-center gap-2.5 px-1 text-stone-800 select-none cursor-pointer group"
+                          onClick={() => handleToggleCheck(absoluteIndex)}
+                        >
+                          <button
+                            type="button"
+                            className="flex-shrink-0 text-stone-400 group-hover:text-stone-700 transition-colors"
+                            aria-label="체크박스 토글"
+                          >
+                            {isChecked ? (
+                              <CheckSquare className="w-4 h-4 text-emerald-600" />
+                            ) : (
+                              <Square className="w-4 h-4 text-stone-400" />
+                            )}
+                          </button>
+                          <span
+                            className={`truncate transition-all text-base tracking-wide font-handwriting ${
+                              isChecked ? 'line-through text-stone-400' : 'text-stone-800'
+                            }`}
+                          >
+                            {criterion}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+
+                  {/* 책 메타포: 5개 초과 시 페이지 넘김 컨트롤 */}
+                  {totalReadPages > 1 && (
+                    <div className="flex items-center justify-between pt-1 border-t border-stone-200/60 font-sans text-[11px] text-stone-500">
+                      <button
+                        type="button"
+                        onClick={() => setReadPage((p) => Math.max(1, p - 1))}
+                        disabled={readPage === 1}
+                        className="px-2 py-0.5 rounded hover:bg-stone-100 disabled:opacity-30 cursor-pointer flex items-center gap-1 transition-colors"
                       >
-                        <button
-                          type="button"
-                          className="flex-shrink-0 text-stone-400 group-hover:text-stone-700 transition-colors"
-                          aria-label="체크박스 토글"
-                        >
-                          {isChecked ? (
-                            <CheckSquare className="w-4 h-4 text-emerald-600" />
-                          ) : (
-                            <Square className="w-4 h-4 text-stone-400" />
-                          )}
-                        </button>
-                        <span
-                          className={`truncate transition-all text-base tracking-wide ${
-                            isChecked ? 'line-through text-stone-400' : 'text-stone-800'
-                          }`}
-                        >
-                          {criterion}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+                        <ChevronLeft className="w-3 h-3" />
+                        <span>이전 쪽</span>
+                      </button>
+                      <span className="font-mono text-[10px] text-stone-400">
+                        {readPage} / {totalReadPages} 쪽
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setReadPage((p) => Math.min(totalReadPages, p + 1))}
+                        disabled={readPage === totalReadPages}
+                        className="px-2 py-0.5 rounded hover:bg-stone-100 disabled:opacity-30 cursor-pointer flex items-center gap-1 transition-colors"
+                      >
+                        <span>다음 쪽</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
         </div>
       ) : (
         /* ========================================================================= */
-        /* [인라인 편집 모드] 팝업 모달 없이 줄노트 위에서 직접 작성하는 인라인 폼 */
+        /* [인라인 편집 모드] 팝업 모달 없이 줄노트 위 직접 작성 (무스크롤 5건 페이징) */
         /* ========================================================================= */
         <form onSubmit={handleSavePlan} className="space-y-3">
           {/* 상단 편집 헤더 및 액션 버튼 */}
@@ -309,7 +374,6 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
 
           {/* 우선순위 / 기간 / 시간 인라인 3분할 컨트롤 */}
           <div className="grid grid-cols-3 gap-2 p-2 rounded bg-stone-50 border border-stone-200 text-xs">
-            {/* 우선순위 */}
             <div className="space-y-1">
               <label className="font-sans text-[10px] text-stone-500 font-medium">우선순위</label>
               <select
@@ -323,7 +387,6 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
               </select>
             </div>
 
-            {/* 예상 시간 */}
             <div className="space-y-1">
               <label className="font-sans text-[10px] text-stone-500 font-medium">예상 시간 (h)</label>
               <input
@@ -336,7 +399,6 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
               />
             </div>
 
-            {/* 기간 */}
             <div className="space-y-1">
               <label className="font-sans text-[10px] text-stone-500 font-medium">종료일</label>
               <input
@@ -350,71 +412,103 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
             </div>
           </div>
 
-          {/* 줄노트 위 성공 기준 인라인 수정 */}
+          {/* 줄노트 위 성공 기준 인라인 수정 (5건 무스크롤 페이징) */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="font-sans text-xs font-semibold text-stone-700">
                 성공 기준 줄노트 편집
               </span>
               <span className="font-mono text-[10px] text-stone-400">
-                {editCriteria.length} ITEMS
+                {editCriteria.length} ITEMS {totalEditPages > 1 ? `(${editPage}/${totalEditPages} 쪽)` : ''}
               </span>
             </div>
 
-            {/* 줄노트 배경 인라인 편집 목록 */}
-            <div className="h-[210px] rounded border border-stone-200 bg-white/70 bg-ruled-lines p-2.5 overflow-y-auto space-y-1">
-              {editCriteria.map((c, idx) => (
-                <div key={idx} className="h-8 flex items-center gap-2 px-1 group">
-                  <span className="font-mono text-[10px] text-stone-400 w-4 text-center">
-                    {idx + 1}
-                  </span>
+            {/* 줄노트 배경 인라인 편집 목록 (h-[210px], 스크롤 완전 배제) */}
+            <div className="h-[210px] rounded border border-stone-200 bg-white/70 bg-ruled-lines p-2.5 overflow-hidden flex flex-col justify-between">
+              <div className="space-y-0.5 flex-1">
+                {currentEditCriteria.map((c, idx) => {
+                  const absoluteIndex = editStartIndex + idx;
+                  return (
+                    <div key={absoluteIndex} className="h-7 flex items-center gap-1.5 px-1 group">
+                      <span className="font-mono text-[10px] text-stone-400 w-4 text-center">
+                        {absoluteIndex + 1}
+                      </span>
+                      <input
+                        type="text"
+                        value={c}
+                        onChange={(e) => {
+                          const updated = [...editCriteria];
+                          updated[absoluteIndex] = e.target.value;
+                          setEditCriteria(updated);
+                        }}
+                        className="flex-1 bg-transparent px-1 py-0.5 font-handwriting text-base text-stone-800 border-b border-transparent focus:border-stone-400 outline-none"
+                        placeholder="성공 기준 서술"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCriterion(absoluteIndex)}
+                        className="p-1 text-stone-300 hover:text-red-500 transition-colors cursor-pointer"
+                        title="항목 삭제"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+
+                {/* 새 항목 추가 행 */}
+                <div className="h-7 flex items-center gap-1.5 px-1 pt-1 border-t border-stone-200/60">
+                  <Plus className="w-3.5 h-3.5 text-stone-400 ml-0.5 flex-shrink-0" />
                   <input
                     type="text"
-                    value={c}
-                    onChange={(e) => {
-                      const updated = [...editCriteria];
-                      updated[idx] = e.target.value;
-                      setEditCriteria(updated);
+                    value={newCriterionInput}
+                    onChange={(e) => setNewCriterionInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCriterion();
+                      }
                     }}
-                    className="flex-1 bg-transparent px-1 py-0.5 font-handwriting text-base text-stone-800 border-b border-transparent focus:border-stone-400 outline-none"
-                    placeholder="성공 기준 서술"
+                    placeholder="새 기준 입력 후 Enter 또는 추가"
+                    className="flex-1 bg-transparent px-1 py-0.5 font-handwriting text-base text-stone-700 border-b border-stone-300 focus:border-stone-600 outline-none placeholder:font-sans placeholder:text-xs placeholder:text-stone-400"
                   />
                   <button
                     type="button"
-                    onClick={() => handleRemoveCriterion(idx)}
-                    className="p-1 text-stone-300 hover:text-red-500 transition-colors cursor-pointer"
-                    title="항목 삭제"
+                    onClick={handleAddCriterion}
+                    className="px-2 py-0.5 rounded bg-stone-100 hover:bg-stone-200 text-stone-700 font-sans text-[11px] border border-stone-300 flex items-center gap-1 cursor-pointer"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Plus className="w-3 h-3" />
+                    <span>추가</span>
                   </button>
                 </div>
-              ))}
-
-              {/* 새 항목 추가 줄 */}
-              <div className="h-8 flex items-center gap-2 px-1 pt-1 border-t border-stone-200/60">
-                <Plus className="w-3.5 h-3.5 text-stone-400 ml-0.5 flex-shrink-0" />
-                <input
-                  type="text"
-                  value={newCriterionInput}
-                  onChange={(e) => setNewCriterionInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddCriterion();
-                    }
-                  }}
-                  placeholder="새 기준 입력 후 Enter 또는 추가"
-                  className="flex-1 bg-transparent px-1 py-0.5 font-handwriting text-base text-stone-700 border-b border-stone-300 focus:border-stone-600 outline-none placeholder:font-sans placeholder:text-xs placeholder:text-stone-400"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCriterion}
-                  className="px-2 py-0.5 rounded bg-stone-100 hover:bg-stone-200 text-stone-700 font-sans text-[11px] border border-stone-300 flex items-center gap-1 cursor-pointer"
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>추가</span>
-                </button>
               </div>
+
+              {/* 편집 모드 페이지 넘김 바 */}
+              {totalEditPages > 1 && (
+                <div className="flex items-center justify-between pt-1 border-t border-stone-200/60 font-sans text-[10px] text-stone-500">
+                  <button
+                    type="button"
+                    onClick={() => setEditPage((p) => Math.max(1, p - 1))}
+                    disabled={editPage === 1}
+                    className="px-2 py-0.5 rounded hover:bg-stone-100 disabled:opacity-30 cursor-pointer flex items-center gap-1 transition-colors"
+                  >
+                    <ChevronLeft className="w-3 h-3" />
+                    <span>이전 쪽</span>
+                  </button>
+                  <span className="font-mono text-stone-400">
+                    {editPage} / {totalEditPages} 쪽
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditPage((p) => Math.min(totalEditPages, p + 1))}
+                    disabled={editPage === totalEditPages}
+                    className="px-2 py-0.5 rounded hover:bg-stone-100 disabled:opacity-30 cursor-pointer flex items-center gap-1 transition-colors"
+                  >
+                    <span>다음 쪽</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </form>
