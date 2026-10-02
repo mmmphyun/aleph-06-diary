@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { PersonalizationProvider } from './context/PersonalizationContext';
 import { PersonalizationToolbar } from './components/PersonalizationToolbar';
 import { BinderChassis } from './components/BinderChassis';
-import { Notebook } from 'lucide-react';
+import { Notebook, RotateCw } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [scale, setScale] = useState(1);
+  const [isCoverOpen, setIsCoverOpen] = useState(false);
+  const closeCoverRef = React.useRef<(() => void) | null>(null);
 
   // 뷰포트 오버플로우 방어: 화면 크기에 맞춰 1.5:1 바인더 비율을 유지하며 스마트 스케일링
   useEffect(() => {
@@ -47,12 +49,30 @@ export const App: React.FC = () => {
               </span>
             </div>
 
-            {/* 상단 개인화 툴바 */}
-            <PersonalizationToolbar />
+            {/* 상단 우측: 표지 닫기 컨트롤 및 테마/글씨체 개인화 툴바 */}
+            <div className="flex items-center gap-2">
+              {isCoverOpen && (
+                <button
+                  type="button"
+                  onClick={() => closeCoverRef.current?.()}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-white/70 hover:bg-white border border-[#E7E5E4] text-[#57534E] shadow-sm backdrop-blur-sm transition-colors cursor-pointer text-xs font-sans font-medium"
+                  title="다이어리 표지 닫기"
+                >
+                  <RotateCw className="w-3.5 h-3.5 text-[#57534E]" />
+                  <span>표지 닫기</span>
+                </button>
+              )}
+              <PersonalizationToolbar />
+            </div>
           </header>
 
           {/* 960×640px 고정 바인더 섀시 */}
-          <BinderChassis />
+          <BinderChassis
+            onCoverOpenChange={(open) => setIsCoverOpen(open)}
+            onRegisterCloseHandler={(fn) => {
+              closeCoverRef.current = fn;
+            }}
+          />
 
           {/* 하단 풋터 */}
           <footer className="w-[960px] mt-4 px-2 flex items-center justify-between text-[11px] font-mono text-stone-500">

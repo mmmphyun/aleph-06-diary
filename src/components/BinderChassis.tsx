@@ -5,9 +5,17 @@ import { DeskMemoSheet } from './DeskMemoSheet';
 import { IndexTabs } from './IndexTabs';
 import { WritingCanvas } from './WritingCanvas';
 import { SectionTab } from '../types/binder';
-import { RotateCw, BarChart3, Trash2 } from 'lucide-react';
+import { BarChart3, Trash2 } from 'lucide-react';
 
-export const BinderChassis: React.FC = () => {
+interface BinderChassisProps {
+  onCoverOpenChange?: (isOpen: boolean) => void;
+  onRegisterCloseHandler?: (handler: () => void) => void;
+}
+
+export const BinderChassis: React.FC<BinderChassisProps> = ({
+  onCoverOpenChange,
+  onRegisterCloseHandler,
+}) => {
   // 다이어리 개폐 상태: 'closed'(Frame 0 닫힘) | 'opened'(표지 열림 완료 후 바닥 고정)
   const [isOpen, setIsOpen] = useState(false);
 
@@ -27,6 +35,7 @@ export const BinderChassis: React.FC = () => {
   const handleOpenCover = () => {
     setIsOpen(true);
     setIsCoverFlipping(true);
+    onCoverOpenChange?.(true);
     setTimeout(() => {
       setIsCoverFlipping(false);
     }, 450);
@@ -38,10 +47,18 @@ export const BinderChassis: React.FC = () => {
     setIsOpen(false);
     setWritingSpread(0);
     setActiveTab('writing');
+    onCoverOpenChange?.(false);
     setTimeout(() => {
       setIsCoverFlipping(false);
     }, 450);
   };
+
+  // 상위 컴포넌트에 표지 닫기 핸들러 등록
+  React.useEffect(() => {
+    if (onRegisterCloseHandler) {
+      onRegisterCloseHandler(handleCloseCover);
+    }
+  }, [onRegisterCloseHandler]);
 
   // 인덱스 탭 전환 (Page Flip Cascade 모션)
   const handleSelectTab = (tab: SectionTab) => {
@@ -287,21 +304,6 @@ export const BinderChassis: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* 좌측 하단 절대 고정: 표지 닫기 버튼 */}
-        {isOpen && (
-          <div className="absolute bottom-3 left-4 z-40">
-            <button
-              type="button"
-              onClick={handleCloseCover}
-              className="px-2.5 py-1 rounded bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 font-sans font-medium text-xs transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
-              title="다이어리 표지 닫기"
-            >
-              <RotateCw className="w-3 h-3" />
-              <span>표지 닫기</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ========================================================================= */}
