@@ -15,6 +15,9 @@ interface PlanSpreadViewProps {
   startPage?: number;
   lineOffset?: number;
   nextSpreadLabel?: string;
+  planStatus?: 'draft' | 'confirmed';
+  onConfirmPlan?: () => void;
+  chapterNumber?: number;
 }
 
 export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
@@ -30,9 +33,13 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
   startPage = 1,
   lineOffset = 0,
   nextSpreadLabel,
+  planStatus = 'draft',
+  onConfirmPlan,
+  chapterNumber = 1,
 }) => {
   // 본문 편집 모드 (양면 무스크롤 2-Pane 에디터) vs 판면 모드 (54px 격줄 렌더러 & 만년필 교정)
   const [isEditing, setIsEditing] = useState(false);
+  const [showOverflowGuide, setShowOverflowGuide] = useState(false);
 
   // 무스크롤 양면 분할 입력 상태 (좌 7줄, 우 7줄)
   const [leftEditorText, setLeftEditorText] = useState('');
@@ -55,14 +62,16 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const LINES_PER_PAGE = 7;
-  const leftPageStr = `PAGE ${String(startPage).padStart(2, '0')}`;
-  const rightPageStr = `PAGE ${String(startPage + 1).padStart(2, '0')}`;
+  const chStr = `CH.${String(chapterNumber).padStart(2, '0')}`;
+  const leftPageStr = `PLAN ${chStr} • P.${String(startPage).padStart(2, '0')}`;
+  const rightPageStr = `PLAN ${chStr} • P.${String(startPage + 1).padStart(2, '0')}`;
   const contentLines = planContent.split('\n').filter(Boolean);
   const leftLines = contentLines.slice(lineOffset, lineOffset + LINES_PER_PAGE);
   const rightLines = contentLines.slice(lineOffset + LINES_PER_PAGE, lineOffset + LINES_PER_PAGE * 2);
 
   // 편집 모드 진입 시 양면 텍스트 분할 초기화
   const handleStartEditing = () => {
+    if (planStatus === 'confirmed') return;
     const lines = planContent.split('\n');
     setLeftEditorText(lines.slice(lineOffset, lineOffset + LINES_PER_PAGE).join('\n'));
     setRightEditorText(lines.slice(lineOffset + LINES_PER_PAGE, lineOffset + LINES_PER_PAGE * 2).join('\n'));
@@ -99,14 +108,31 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
     }
   };
 
-  // 우측 7행 에디터 줄바꿈 제어 (최대 7줄 초과 방어)
+  // 우측 7행 에디터 줄바꿈 제어 (최대 7줄 초과 방어 및 포화 가이드 표출)
   const handleRightTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     const lines = val.split('\n');
     if (lines.length > LINES_PER_PAGE) {
       setRightEditorText(lines.slice(0, LINES_PER_PAGE).join('\n'));
+      setShowOverflowGuide(true);
     } else {
       setRightEditorText(val);
+      if (lines.length === LINES_PER_PAGE) {
+        setShowOverflowGuide(true);
+      } else {
+        setShowOverflowGuide(false);
+      }
+    }
+  };
+
+  // 우측 에디터 키보드 엔터 감지 (7행 포화 시 추가 개행 차단 및 안내)
+  const handleRightKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      const lines = rightEditorText.split('\n');
+      if (lines.length >= LINES_PER_PAGE) {
+        e.preventDefault();
+        setShowOverflowGuide(true);
+      }
     }
   };
 
@@ -295,26 +321,42 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
           <div className="flex items-center justify-between pb-3 border-b border-stone-200">
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs font-semibold text-stone-700">PLAN-DO-SEE</span>
-              <span className="font-mono text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                섹션 1: 계획 (Plan)
-              </span>
+              {planStatus === 'confirmed' ? (
+                <span className="font-mono text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                  ✓ 계획 확정 (교정 모드)
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onConfirmPlan}
+                  className="font-mono text-[10px] text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded border border-amber-300 flex items-center gap-1 cursor-pointer transition-colors"
+                  title="계획을 확정 날인합니다. 이후 자유 편집은 잠기며 만년필 1회 교정만 가능합니다."
+                >
+                  <Sparkles className="w-3 h-3 text-amber-700" />
+                  <span>계획 확정 날인</span>
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (isEditing) {
-                    handleSaveEditing();
-                  } else {
-                    handleStartEditing();
-                  }
-                }}
-                className="flex items-center gap-1 font-sans text-[11px] text-stone-600 hover:text-stone-900 px-2 py-0.5 rounded bg-stone-100 hover:bg-stone-200 border border-stone-200 cursor-pointer transition-colors"
-                title={isEditing ? '작성 완료 및 판면 복귀' : '본문 양면 무스크롤 편집'}
-              >
-                {isEditing ? <Check className="w-3 h-3 text-emerald-600" /> : <Edit3 className="w-3 h-3" />}
-                <span>{isEditing ? '작성 완료' : '본문 편집'}</span>
-              </button>
+              {planStatus === 'draft' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isEditing) {
+                      handleSaveEditing();
+                    } else {
+                      handleStartEditing();
+                    }
+                  }}
+                  className="flex items-center gap-1 font-sans text-[11px] text-stone-600 hover:text-stone-900 px-2 py-0.5 rounded bg-stone-100 hover:bg-stone-200 border border-stone-200 cursor-pointer transition-colors"
+                  title={isEditing ? '작성 완료 및 판면 복귀' : '본문 양면 무스크롤 편집'}
+                >
+                  {isEditing ? <Check className="w-3 h-3 text-emerald-600" /> : <Edit3 className="w-3 h-3" />}
+                  <span>{isEditing ? '작성 완료' : '본문 편집'}</span>
+                </button>
+              ) : (
+                <span className="font-sans text-[10px] text-stone-400">만년필 교정 모드</span>
+              )}
               <span className="font-mono text-[11px] text-stone-400">{leftPageStr}</span>
             </div>
           </div>
@@ -325,7 +367,8 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
               type="text"
               value={planTitle}
               onChange={(e) => onUpdateTitle(e.target.value)}
-              className="w-full bg-transparent font-handwriting text-2xl text-stone-900 outline-none"
+              disabled={planStatus === 'confirmed'}
+              className="w-full bg-transparent font-handwriting text-2xl text-stone-900 outline-none disabled:text-stone-700"
               placeholder="계획의 핵심 제목을 손글씨로 적으세요"
             />
           </div>
@@ -406,6 +449,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
                 ref={rightTextareaRef}
                 value={rightEditorText}
                 onChange={handleRightTextareaChange}
+                onKeyDown={handleRightKeyDown}
                 rows={7}
                 placeholder="8~14번째 줄이 이어집니다. 스크롤바 없이 7줄에 맞춰 정돈됩니다."
                 className="w-full h-[378px] bg-transparent font-handwriting text-base text-stone-900 leading-[54px] p-0 outline-none resize-none overflow-hidden scrollbar-none"
@@ -430,6 +474,22 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
               ))
             )}
           </div>
+
+          {/* 7행 초과 입력 포화 가이드 배너 */}
+          {showOverflowGuide && (
+            <div className="mt-2 p-2 rounded-lg bg-amber-50/95 border border-amber-300 text-amber-900 text-xs font-sans flex items-center justify-between shadow-2xs">
+              <span className="truncate text-[11px]">
+                현재 장이 가득 찼습니다. 우측 하단의 [다음 장 넘기기]를 눌러 새 속지에서 이어 쓰세요.
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowOverflowGuide(false)}
+                className="text-amber-700 hover:text-amber-950 font-bold ml-1 text-xs shrink-0 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 우측 하단: 다음 섹션으로 새 장 넘김 버튼 */}
