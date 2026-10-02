@@ -6,12 +6,14 @@ interface IndexTabsProps {
   activeTab: SectionTab;
   onSelectTab: (tab: SectionTab) => void;
   disabled?: boolean;
+  peekOnly?: boolean;
 }
 
 export const IndexTabs: React.FC<IndexTabsProps> = ({
   activeTab,
   onSelectTab,
   disabled = false,
+  peekOnly = false,
 }) => {
   const tabs: Array<{
     id: SectionTab;
@@ -49,7 +51,9 @@ export const IndexTabs: React.FC<IndexTabsProps> = ({
 
   return (
     <aside
-      className="absolute top-16 -right-7 z-20 flex flex-col gap-3 select-none"
+      className={`absolute top-16 z-20 flex flex-col gap-3 select-none transition-all duration-300 ${
+        peekOnly ? '-right-5 pointer-events-none opacity-75' : '-right-7'
+      }`}
       aria-label="바인더 대분류 인덱스 탭"
     >
       {tabs.map((tab) => {
@@ -59,11 +63,12 @@ export const IndexTabs: React.FC<IndexTabsProps> = ({
             key={tab.id}
             type="button"
             onClick={() => onSelectTab(tab.id)}
-            disabled={disabled}
-            className={`w-28 py-2.5 px-3 rounded-r-lg border-y border-r transition-all duration-200 flex flex-col items-start cursor-pointer group shadow-2xs ${
-              isActive ? tab.activeColorClass : tab.colorClass
-            } ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
-            title={`${tab.label} 섹션으로 이동`}
+            disabled={disabled || peekOnly}
+            tabIndex={peekOnly ? -1 : 0}
+            className={`w-28 py-2.5 px-3 rounded-r-lg border-y border-r transition-all duration-200 flex flex-col items-start shadow-2xs ${
+              isActive && !peekOnly ? tab.activeColorClass : tab.colorClass
+            } ${disabled || peekOnly ? 'cursor-default' : 'cursor-pointer group'}`}
+            title={peekOnly ? `${tab.label} 섹션 (다이어리 전개 후 이용 가능)` : `${tab.label} 섹션으로 이동`}
           >
             <div className="flex items-center gap-1.5 font-sans text-xs">
               <span className="text-stone-500 group-hover:text-stone-800 transition-colors">

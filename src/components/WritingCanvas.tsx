@@ -15,11 +15,13 @@ import {
 interface WritingCanvasProps {
   currentSpread: number; // 0: 계획, 1: 할 일, 2: 실행 일지
   onNavigateSpread: (spreadIndex: number) => void;
+  onNavigateToTitlePage?: () => void;
 }
 
 export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   currentSpread,
   onNavigateSpread,
+  onNavigateToTitlePage,
 }) => {
   // [섹션 1: 계획 데이터 상태]
   const [planTitle, setPlanTitle] = useState('2026 하반기 핵심 목표 수립');
@@ -276,9 +278,21 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
               </div>
             </div>
 
-            {/* 좌측 하단 정보 */}
+            {/* 좌측 하단 정보 & 속표지 뒤로가기 버튼 */}
             <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
-              <span>격줄 교정 캔버스</span>
+              {onNavigateToTitlePage ? (
+                <button
+                  type="button"
+                  onClick={onNavigateToTitlePage}
+                  className="font-sans text-xs text-stone-600 hover:text-stone-900 flex items-center gap-1 cursor-pointer"
+                  title="첫 장 속표지로 돌아가기"
+                >
+                  <ArrowLeft className="w-3 h-3" />
+                  <span>속표지 (Leaf 01)</span>
+                </button>
+              ) : (
+                <span>격줄 교정 캔버스</span>
+              )}
               <span>PAGE 01</span>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { CoverView } from './CoverView';
 import { DeskMemoSheet } from './DeskMemoSheet';
 import { IndexTabs } from './IndexTabs';
 import { WritingCanvas } from './WritingCanvas';
+import { TitlePageView } from './TitlePageView';
 import { SectionTab } from '../types/binder';
 import { BarChart3, Trash2 } from 'lucide-react';
 
@@ -22,6 +23,9 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   // 표지 3D 플립 애니메이션 진행 플래그 (450ms 동안 CoverView z-30 유지 후 바닥 z-10 안착)
   const [isCoverFlipping, setIsCoverFlipping] = useState(false);
 
+  // 속표지(Leaf 01 Front) 수동 넘김 여부 (true일 때만 본문 양면 스프레드 진입)
+  const [hasTurnedTitlePage, setHasTurnedTitlePage] = useState(false);
+
   // Tier 1: 우측 돌출 인덱스 탭 상태 ('writing' | 'review' | 'archive')
   const [activeTab, setActiveTab] = useState<SectionTab>('writing');
 
@@ -35,6 +39,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   const handleOpenCover = () => {
     setIsOpen(true);
     setIsCoverFlipping(true);
+    setHasTurnedTitlePage(false);
     onCoverOpenChange?.(true);
     setTimeout(() => {
       setIsCoverFlipping(false);
@@ -45,12 +50,25 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   const handleCloseCover = () => {
     setIsCoverFlipping(true);
     setIsOpen(false);
+    setHasTurnedTitlePage(false);
     setWritingSpread(0);
     setActiveTab('writing');
     onCoverOpenChange?.(false);
     setTimeout(() => {
       setIsCoverFlipping(false);
     }, 450);
+  };
+
+  // 속표지(Leaf 01) 넘김 핸들러: 본문 양면 스프레드로 진입
+  const handleTurnTitlePage = () => {
+    setHasTurnedTitlePage(true);
+  };
+
+  // 본문에서 속표지로 뒤로가기 핸들러
+  const handleReturnToTitlePage = () => {
+    setHasTurnedTitlePage(false);
+    setActiveTab('writing');
+    setWritingSpread(0);
   };
 
   // 상위 컴포넌트에 표지 닫기 핸들러 등록
@@ -97,6 +115,14 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
         />
       </div>
 
+      {/* 우측 돌출 인덱스 탭 (State 0, 1에서는 peekOnly로 살짝 돌출, State 2 본문에서 완전 활성화) */}
+      <IndexTabs
+        activeTab={activeTab}
+        onSelectTab={handleSelectTab}
+        disabled={isCascading}
+        peekOnly={!isOpen || !hasTurnedTitlePage}
+      />
+
       {/* ========================================================================= */}
       {/* [레이어 2: 펼침 상태 양면 바인더 섀시 (960×640px)] 속지 캔버스 */}
       {/* ========================================================================= */}
@@ -109,15 +135,6 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
         }}
       >
-        {/* 우측 돌출 인덱스 탭 (Tier 1: 대분류) */}
-        {isOpen && (
-          <IndexTabs
-            activeTab={activeTab}
-            onSelectTab={handleSelectTab}
-            disabled={isCascading}
-          />
-        )}
-
         {/* 바인더 내부 양면 페이퍼 컨테이너 */}
         <div
           className={`relative w-full h-full flex rounded-lg overflow-hidden transform-style-preserve-3d transition-transform duration-250 ${
@@ -129,14 +146,24 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
             <SpineDivider />
           </div>
 
-          {/* ---------------- 탭별 본문 컨텐츠 ---------------- */}
-          {activeTab === 'writing' && (
-            /* [기록 캔버스] 계획 -> 할 일 -> 실행 일지 3대 섹션 전개 */
-            <WritingCanvas
-              currentSpread={writingSpread}
-              onNavigateSpread={(idx) => setWritingSpread(idx)}
-            />
-          )}
+          {/* ---------------- 단계별 속지 컨텐츠 ---------------- */}
+          {!hasTurnedTitlePage ? (
+            /* [State 1: 속표지 단계] 좌측은 투명 영역 (하부 Inside Cover 서명 폼 노출), 우측은 Leaf 01 Front */
+            <div className="w-full h-full flex">
+              <div className="w-[480px] h-full pointer-events-none" />
+              <TitlePageView onTurnPage={handleTurnTitlePage} />
+            </div>
+          ) : (
+            /* [State 2: 본문 양면 스프레드 단계] */
+            <>
+              {activeTab === 'writing' && (
+                /* [기록 캔버스] 계획 -> 할 일 -> 실행 일지 3대 섹션 전개 */
+                <WritingCanvas
+                  currentSpread={writingSpread}
+                  onNavigateSpread={(idx) => setWritingSpread(idx)}
+                  onNavigateToTitlePage={handleReturnToTitlePage}
+                />
+              )}
 
           {activeTab === 'review' && (
             /* [돌아보기 섹션] 좌 480px 지표 + 우 480px 대조표 2면 분할 */
@@ -303,6 +330,8 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
               </div>
             </div>
           )}
+            </>
+          )}
         </div>
       </div>
 
@@ -314,8 +343,8 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
         isOpen={isOpen}
         onOpen={handleOpenCover}
         onClose={handleCloseCover}
-        disabled={isOpen}
-        zIndex={!isOpen || isCoverFlipping ? 30 : 10}
+        disabled={false}
+        zIndex={!isOpen || isCoverFlipping ? 30 : (!hasTurnedTitlePage ? 25 : 10)}
       />
     </div>
   );
