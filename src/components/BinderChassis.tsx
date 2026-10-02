@@ -248,12 +248,13 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
       {/* [레이어 2: 펼침 상태 양면 바인더 섀시 (960×640px)] 속지 캔버스 */}
       {/* ========================================================================= */}
       <div
-        className={`absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis overflow-visible z-20 transition-opacity duration-300 ${
+        className={`absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis overflow-visible transition-opacity duration-300 ${
           !isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
         style={{
           backgroundColor: 'var(--color-cover)',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+          zIndex: !hasTurnedTitlePage || isLeafFlipping ? 25 : 20,
         }}
       >
         {/* 바인더 내부 양면 페이퍼 컨테이너 */}
