@@ -48,6 +48,8 @@ export const INITIAL_PLAN_PACKAGES: PlanPackage[] = [
       },
     ],
     tasksTemplateApplied: true,
+    planStatus: 'confirmed',
+    period: { start: '2026-10-01', end: '2026-10-07' },
     createdAt: '2026-10-01',
   },
   {
@@ -80,6 +82,8 @@ export const INITIAL_PLAN_PACKAGES: PlanPackage[] = [
       },
     ],
     tasksTemplateApplied: true,
+    planStatus: 'confirmed',
+    period: { start: '2026-10-02', end: '2026-10-15' },
     createdAt: '2026-10-02',
   },
 ];
@@ -108,10 +112,20 @@ export const planPackageService = {
     }
   },
 
-  createPackage(title: string): PlanPackage {
+  getPlansByDate(dateStr: string): PlanPackage[] {
+    const packages = this.loadPackages();
+    return packages.filter((pkg) => {
+      if (pkg.period) {
+        return pkg.period.start <= dateStr && dateStr <= pkg.period.end;
+      }
+      return pkg.createdAt.startsWith(dateStr);
+    });
+  },
+
+  createPackage(title: string, startDate?: string, endDate?: string): PlanPackage {
     const existing = this.loadPackages();
-    // 마지막 패키지의 startPage + 4로 다음 시작 페이지 계산 (각 패키지당 4페이지 기본 할당)
     const lastPage = existing.length > 0 ? existing[existing.length - 1].startPage + 4 : 1;
+    const today = new Date().toISOString().split('T')[0];
     const newPkg: PlanPackage = {
       id: `plan-${Date.now()}`,
       title: title.trim() || `새로운 계획 ${existing.length + 1}`,
@@ -121,9 +135,24 @@ export const planPackageService = {
       tasks: [],
       logs: [],
       tasksTemplateApplied: false,
-      createdAt: new Date().toISOString().split('T')[0],
+      planStatus: 'draft',
+      period: {
+        start: startDate || today,
+        end: endDate || startDate || today,
+      },
+      createdAt: today,
     };
     const updated = [...existing, newPkg];
+    this.savePackages(updated);
+    return newPkg;
+  },
+
+  confirmPlan(pkgId: string): PlanPackage {
+    const existing = this.loadPackages();
+    const target = existing.find((p) => p.id === pkgId);
+    if (!target) return existing[0];
+    const newPkg: PlanPackage = { ...target, planStatus: 'confirmed' };
+    const updated = existing.map((p) => (p.id === pkgId ? newPkg : p));
     this.savePackages(updated);
     return newPkg;
   },

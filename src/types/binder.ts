@@ -19,6 +19,11 @@ export interface PlanPackage {
   tasks: TaskItem[]; // 하위 할 일 목록 (1:N)
   logs: LogItem[]; // 하위 실행 일지 목록 (1:N)
   tasksTemplateApplied?: boolean; // 빈 속지에서 할 일 템플릿 적용 여부
+  planStatus?: 'draft' | 'confirmed'; // 계획 작성 중 vs 확정(날인) 완료
+  period?: {
+    start: string; // YYYY-MM-DD
+    end: string; // YYYY-MM-DD
+  };
   createdAt: string;
 }
 
