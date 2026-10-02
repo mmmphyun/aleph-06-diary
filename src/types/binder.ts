@@ -54,3 +54,35 @@ export interface LogItem {
   completedAt: string;
   comment: string;
 }
+
+/**
+ * 백엔드 API / DB 연동 대비 DTO 규격 정의
+ */
+export interface CreatePlanPackageDto {
+  title: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface UpdatePlanPackageDto {
+  title?: string;
+  content?: string;
+  planStatus?: 'draft' | 'confirmed';
+  tasksTemplateApplied?: boolean;
+}
+
+export interface IPlanPackageRepository {
+  loadPackages(): PlanPackage[];
+  savePackages(packages: PlanPackage[]): void;
+  getPlansByDate(dateStr: string): PlanPackage[];
+  createPackage(title: string, startDate?: string, endDate?: string): PlanPackage;
+  updatePackage(pkg: PlanPackage): void;
+  confirmPlan(pkgId: string): PlanPackage;
+  applyTasksTemplate(pkgId: string): PlanPackage;
+  updatePlanText(pkgId: string, title: string, content: string): PlanPackage;
+  addRevision(pkgId: string, revision: TextRevision): PlanPackage;
+  addTask(pkgId: string, title: string): PlanPackage;
+  deleteTask(pkgId: string, taskId: string): PlanPackage;
+  updateLogComment(pkgId: string, logId: string, comment: string): PlanPackage;
+  toggleTaskDone(pkgId: string, taskId: string, comment?: string): { packages: PlanPackage[]; updatedPkg: PlanPackage };
+}

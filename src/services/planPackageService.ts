@@ -1,4 +1,4 @@
-import type { PlanPackage, LogItem, TextRevision } from '../types/binder';
+import type { PlanPackage, LogItem, TextRevision, IPlanPackageRepository } from '../types/binder';
 
 const STORAGE_KEY = 'aleph06_plan_packages';
 
@@ -88,7 +88,7 @@ export const INITIAL_PLAN_PACKAGES: PlanPackage[] = [
   },
 ];
 
-export const planPackageService = {
+export const planPackageService: IPlanPackageRepository = {
   loadPackages(): PlanPackage[] {
     try {
       const data = localStorage.getItem(STORAGE_KEY);

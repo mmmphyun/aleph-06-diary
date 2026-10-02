@@ -43,6 +43,8 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   const [currentPackageId, setCurrentPackageId] = useState<string>(
     () => packages[0]?.id || 'plan-01'
   );
+  // 미작성 상태의 유령 계획 스토리지 오염을 방지하는 임시 작성 상태 (Lazy Materialization)
+  const [transientDraft, setTransientDraft] = useState<PlanPackage | null>(null);
 
   // 속표지(Leaf 01 Front) 수동 넘김 여부 (true일 때만 본문 양면 스프레드 진입)
   const [hasTurnedTitlePage, setHasTurnedTitlePage] = useState(false);
@@ -59,28 +61,61 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
 
   // 계획 선택 핸들러
   const handleSelectPackage = (pkgId: string) => {
+    if (currentPackageId === 'draft-transient') {
+      setTransientDraft(null);
+    }
     setCurrentPackageId(pkgId);
   };
 
-  // 계획 신규 생성 핸들러 (속표지 캘린더 연동)
+  // 계획 신규 생성 핸들러 (속표지 캘린더 연동 - 명시적 폼 제출)
   const handleCreatePackage = (title: string, startDate?: string, endDate?: string) => {
+    if (currentPackageId === 'draft-transient') {
+      setTransientDraft(null);
+    }
     const newPkg = planPackageService.createPackage(title, startDate, endDate);
     setPackages(planPackageService.loadPackages());
     setCurrentPackageId(newPkg.id);
   };
 
-  // 계획 확정 핸들러
-  const handleConfirmPlan = () => {
-    planPackageService.confirmPlan(currentPackageId);
-    setPackages(planPackageService.loadPackages());
+  // 임시 드래프트의 영속화(Commit Gate) 헬퍼
+  const ensureCommittedPackageId = (initialTitle?: string, initialContent?: string): string => {
+    if (currentPackageId === 'draft-transient' && transientDraft) {
+      const finalTitle = (initialTitle ?? transientDraft.title).trim() || `새로운 계획 ${packages.length + 1}`;
+      const newPkg = planPackageService.createPackage(
+        finalTitle,
+        transientDraft.period?.start,
+        transientDraft.period?.end
+      );
+      if (initialContent !== undefined && initialContent !== '') {
+        planPackageService.updatePlanText(newPkg.id, finalTitle, initialContent);
+      }
+      setPackages(planPackageService.loadPackages());
+      setCurrentPackageId(newPkg.id);
+      setTransientDraft(null);
+      return newPkg.id;
+    }
+    return currentPackageId;
   };
 
-  // 마지막 속지에서 다음 새 계획 패키지 연속 결속 핸들러
+  // 마지막 속지에서 다음 새 계획 패키지 연속 결속 핸들러 (Lazy Materialization: 즉시 저장하지 않고 메모리 임시 드래프트로 오픈)
   const handleAppendNewPlanPackage = () => {
     const today = new Date().toISOString().split('T')[0];
-    const newPkg = planPackageService.createPackage(`계획 ${packages.length + 1}`, today, today);
-    setPackages(planPackageService.loadPackages());
-    setCurrentPackageId(newPkg.id);
+    const lastPage = packages.length > 0 ? packages[packages.length - 1].startPage + 4 : 1;
+    const draft: PlanPackage = {
+      id: 'draft-transient',
+      title: '',
+      content: '',
+      revisions: [],
+      startPage: lastPage,
+      tasks: [],
+      logs: [],
+      tasksTemplateApplied: false,
+      planStatus: 'draft',
+      period: { start: today, end: today },
+      createdAt: today,
+    };
+    setTransientDraft(draft);
+    setCurrentPackageId('draft-transient');
     setWritingSpread(0);
     setLeafFlipDirection('forward');
     setIsLeafFlipping(true);
@@ -90,38 +125,61 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   };
 
   // 현재 선택된 패키지 객체 추출 및 챕터 번호 계산
-  const currentPackage =
-    packages.find((p) => p.id === currentPackageId) || packages[0];
-  const chapterNumber = Math.max(1, packages.findIndex((p) => p.id === currentPackageId) + 1);
+  const isTransientActive = currentPackageId === 'draft-transient' && transientDraft !== null;
+  const currentPackage: PlanPackage = isTransientActive
+    ? transientDraft
+    : packages.find((p) => p.id === currentPackageId) || packages[0];
+  const chapterNumber = isTransientActive
+    ? packages.length + 1
+    : Math.max(1, packages.findIndex((p) => p.id === currentPackageId) + 1);
+
+  // 계획 확정 핸들러
+  const handleConfirmPlan = () => {
+    const pkgId = ensureCommittedPackageId();
+    planPackageService.confirmPlan(pkgId);
+    setPackages(planPackageService.loadPackages());
+  };
 
   // 계획 본문 업데이트 핸들러
   const handleUpdatePlan = (title: string, content: string) => {
+    if (currentPackageId === 'draft-transient') {
+      if (title.trim().length > 0 || content.trim().length > 0) {
+        ensureCommittedPackageId(title, content);
+      } else {
+        setTransientDraft((prev) => (prev ? { ...prev, title, content } : null));
+      }
+      return;
+    }
     planPackageService.updatePlanText(currentPackageId, title, content);
     setPackages(planPackageService.loadPackages());
   };
 
   // 만년필 취소선 교정 추가 핸들러
   const handleAddRevision = (rev: TextRevision) => {
-    planPackageService.addRevision(currentPackageId, rev);
+    const pkgId = ensureCommittedPackageId();
+    planPackageService.addRevision(pkgId, rev);
     setPackages(planPackageService.loadPackages());
   };
 
   // 할 일 추가 핸들러
   const handleAddTask = (title: string) => {
-    planPackageService.addTask(currentPackageId, title);
+    const pkgId = ensureCommittedPackageId();
+    planPackageService.addTask(pkgId, title);
     setPackages(planPackageService.loadPackages());
   };
 
   // 할 일 삭제 핸들러
   const handleDeleteTask = (taskId: string) => {
-    planPackageService.deleteTask(currentPackageId, taskId);
+    const pkgId = ensureCommittedPackageId();
+    planPackageService.deleteTask(pkgId, taskId);
     setPackages(planPackageService.loadPackages());
   };
 
   // 할 일 토글 및 실행 일지 연쇄 생성 핸들러
   const handleToggleTask = (taskId: string, comment?: string) => {
+    const pkgId = ensureCommittedPackageId();
     const { packages: updatedPackages } = planPackageService.toggleTaskDone(
-      currentPackageId,
+      pkgId,
       taskId,
       comment
     );
@@ -130,13 +188,15 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
 
   // 실행 일지 성찰 코멘트 수정 핸들러
   const handleUpdateLogComment = (logId: string, comment: string) => {
-    planPackageService.updateLogComment(currentPackageId, logId, comment);
+    const pkgId = ensureCommittedPackageId();
+    planPackageService.updateLogComment(pkgId, logId, comment);
     setPackages(planPackageService.loadPackages());
   };
 
   // 빈 속지에서 할 일 템플릿 적용 핸들러
   const handleApplyTasksTemplate = () => {
-    planPackageService.applyTasksTemplate(currentPackageId);
+    const pkgId = ensureCommittedPackageId();
+    planPackageService.applyTasksTemplate(pkgId);
     setPackages(planPackageService.loadPackages());
   };
 
@@ -163,6 +223,10 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
 
   // 앞표지 닫기: 닫힌 상태로 복귀
   const handleCloseCover = () => {
+    if (currentPackageId === 'draft-transient') {
+      setTransientDraft(null);
+      setCurrentPackageId(packages[0]?.id || 'plan-01');
+    }
     setIsCoverFlipping(true);
     setIsOpen(false);
     setHasTurnedTitlePage(false);
@@ -191,6 +255,10 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   // 본문에서 속표지로 뒤로가기 핸들러
   const handleReturnToTitlePage = () => {
     if (isLeafFlipping) return;
+    if (currentPackageId === 'draft-transient') {
+      setTransientDraft(null);
+      setCurrentPackageId(packages[0]?.id || 'plan-01');
+    }
     setLeafFlipDirection('backward');
     setIsLeafFlipping(true);
     setTimeout(() => {
@@ -227,6 +295,10 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   // 인덱스 탭 전환 (Page Flip Cascade 3D 다중 플립 모션)
   const handleSelectTab = (tab: SectionTab) => {
     if (tab === activeTab || isCascading) return;
+    if (currentPackageId === 'draft-transient') {
+      setTransientDraft(null);
+      setCurrentPackageId(packages[0]?.id || 'plan-01');
+    }
     const direction = TAB_ORDER[tab] > TAB_ORDER[activeTab] ? 'forward' : 'backward';
     setCascadeDirection(direction);
     setIsCascading(true);
