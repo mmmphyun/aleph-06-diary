@@ -43,15 +43,19 @@
 
 .perspective-1400 {
   perspective: 1400px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .transform-style-preserve-3d {
   transform-style: preserve-3d;
+  will-change: transform;
 }
 
 .backface-hidden {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 /* 모눈종이 그리드 패턴 */
