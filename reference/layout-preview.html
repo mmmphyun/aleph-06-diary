@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>다이어리 바인더 정적 레이아웃 & 물리 Z-Index 프리뷰</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 격줄 줄노트 패턴 (54px 주기: 본문 36px 실선 + 교정 여백 18px 가이드선) */
+    .bg-ruled-lines {
+      background-size: 100% 54px;
+      background-image: linear-gradient(
+        to bottom,
+        transparent 35px,
+        rgba(0, 0, 0, 0.08) 35px,
+        rgba(0, 0, 0, 0.08) 36px,
+        transparent 36px,
+        transparent 53px,
+        rgba(153, 27, 27, 0.08) 53px,
+        rgba(153, 27, 27, 0.08) 54px
+      );
+    }
+    .perspective-1400 {
+      perspective: 1400px;
+    }
+  </style>
+</head>
+<body class="min-h-screen w-full bg-[#EFECE6] flex flex-col items-center justify-center p-6 text-stone-800 font-sans select-none">
+
+  <!-- ========================================================================= -->
+  <!-- 상단 컨트롤러: 상태별 시각 레이아웃 즉시 전환 테스트 바 -->
+  <!-- ========================================================================= -->
+  <header class="w-[960px] mb-4 flex items-center justify-between bg-white/80 backdrop-blur-xs p-3 rounded-xl border border-stone-300 shadow-sm">
+    <div class="flex items-center gap-2">
+      <span class="font-mono text-xs font-bold text-stone-800 uppercase tracking-wider">LAYOUT TESTER:</span>
+      <span id="current-state-label" class="font-mono text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">
+        STATE 0: CLOSED
+      </span>
+    </div>
+
+    <div class="flex items-center gap-1.5 text-xs font-medium">
+      <button onclick="setState(0)" class="px-2.5 py-1 rounded border border-stone-300 hover:bg-stone-100 transition-colors">
+        0. 닫힘 (Closed)
+      </button>
+      <button onclick="setState(1)" class="px-2.5 py-1 rounded border border-stone-300 hover:bg-stone-100 transition-colors">
+        1. 표지만 열림 (Inside Cover)
+      </button>
+      <button onclick="setState(2)" class="px-2.5 py-1 rounded border border-stone-300 hover:bg-stone-100 transition-colors">
+        2. 기록 본문 (양면 속지)
+      </button>
+      <button onclick="setState(3)" class="px-2.5 py-1 rounded border border-stone-300 hover:bg-stone-100 transition-colors">
+        3. 돌아보기 (양면 분할)
+      </button>
+      <button onclick="setState(4)" class="px-2.5 py-1 rounded border border-stone-300 hover:bg-stone-100 transition-colors">
+        4. 보관함 (양면 분할)
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 메인 960×640px 바인더 섀시 컨테이너 -->
+  <!-- ========================================================================= -->
+  <div class="relative w-[960px] h-[640px] perspective-1400">
+
+    <!-- ------------------------------------------------------------------------- -->
+    <!-- [레이어 0: 닫힘 상태 베이스] 좌측 데스크 메모지 + 우측 닫힌 하드커버 -->
+    <!-- ------------------------------------------------------------------------- -->
+    <div id="layer-closed" class="absolute inset-0 w-full h-full flex items-center justify-between pointer-events-none transition-opacity duration-300">
+      <!-- 좌측 480px 데스크 메모지 -->
+      <div class="w-[480px] h-[640px] flex items-center justify-center p-6">
+        <div class="relative w-[380px] h-[500px] rounded-lg p-8 flex flex-col justify-between border border-stone-200/90 shadow-lg bg-[#FAF8F5] rotate-[-1.2deg]">
+          <div class="flex items-center justify-between pb-3 border-b border-stone-200">
+            <span class="font-mono text-[10px] text-stone-500 uppercase tracking-widest">PHILOSOPHY</span>
+            <span class="font-mono text-[10px] text-stone-400">ALEPH-06</span>
+          </div>
+          <div class="my-auto text-center space-y-4">
+            <h2 class="text-xl font-serif text-stone-800 leading-relaxed">
+              "생각을 기록하고, 행동을 살피며, 삶을 반추하다"
+            </h2>
+            <p class="text-xs text-stone-500 leading-relaxed">
+              기록되지 않은 계획은 망각되고,<br>측정되지 않은 실행은 개선되지 않는다.
+            </p>
+          </div>
+          <div class="pt-3 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
+            <span>WORKBOOK NOTE</span>
+            <span>EST. 2026</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 우측 480px 닫힌 앞표지 하드커버 베이스 -->
+      <div class="w-[480px] h-[640px] rounded-xl border-4 border-[#2E2A27] bg-[#3A3632] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.35)] flex flex-col items-center justify-between p-8 text-stone-200 pointer-events-auto">
+        <div class="pt-6 text-center">
+          <div class="text-[0.875rem] font-mono font-medium tracking-[0.25em] uppercase text-stone-400">
+            PLAN-DO-SEE DIARY
+          </div>
+          <div class="text-[10px] font-mono tracking-widest text-stone-500 mt-1">EST. 2026 • WORKBOOK</div>
+        </div>
+
+        <div class="my-auto flex flex-col items-center gap-6">
+          <!-- 잠금쇠 아이콘 -->
+          <div class="w-12 h-12 rounded-full border-2 border-stone-400 flex items-center justify-center text-stone-400">
+            🔓
+          </div>
+          <!-- 안내 포스트잇 -->
+          <div class="w-64 bg-[#FFFDE7] text-stone-800 text-xs p-4 rounded-sm shadow-md border border-amber-200/60 rotate-[-2deg] space-y-3">
+            <p class="text-[11px] leading-relaxed">
+              지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요
+            </p>
+            <button onclick="setState(1)" class="w-full py-1.5 rounded bg-stone-800 text-white font-medium text-xs hover:bg-stone-900 transition-colors cursor-pointer">
+              다이어리 열기 →
+            </button>
+          </div>
+        </div>
+
+        <div class="pb-4 text-center text-[11px] font-mono text-stone-500">
+          PRIVATE LOCAL MEMORY
+        </div>
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------------------------------- -->
+    <!-- [레이어 1: 펼침 상태 960×640px 바인더 섀시 본체] -->
+    <!-- ------------------------------------------------------------------------- -->
+    <div id="layer-opened" class="absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] bg-[#3A3632] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.35)] overflow-visible z-10 transition-opacity duration-300 hidden">
+
+      <!-- 우측 돌출 인덱스 탭 (24px 바깥 돌출) -->
+      <aside class="absolute top-16 -right-7 z-50 flex flex-col gap-3 select-none">
+        <button id="tab-btn-writing" onclick="setState(2)" class="w-28 py-2.5 px-3 rounded-r-lg border-y border-r transition-all duration-200 flex flex-col items-start bg-[#F2DFCE] text-stone-900 font-bold border-amber-400 shadow-sm translate-x-2">
+          <span class="text-xs">기록</span>
+          <span class="font-mono text-[9px] text-stone-500 uppercase">Plan-Do-See</span>
+        </button>
+        <button id="tab-btn-review" onclick="setState(3)" class="w-28 py-2.5 px-3 rounded-r-lg border-y border-r transition-all duration-200 flex flex-col items-start bg-[#EBF2F0] text-stone-700 hover:bg-[#DFEBE8] border-teal-200/80">
+          <span class="text-xs">돌아보기</span>
+          <span class="font-mono text-[9px] text-stone-500 uppercase">Review</span>
+        </button>
+        <button id="tab-btn-archive" onclick="setState(4)" class="w-28 py-2.5 px-3 rounded-r-lg border-y border-r transition-all duration-200 flex flex-col items-start bg-[#F4EFF4] text-stone-700 hover:bg-[#EAE2EA] border-purple-200/80">
+          <span class="text-xs">보관함</span>
+          <span class="font-mono text-[9px] text-stone-500 uppercase">Archive</span>
+        </button>
+      </aside>
+
+      <!-- ----------------------------------------------------------------------- -->
+      <!-- 바인더 내부 양면 페이퍼 (좌 480px + 중앙 16px 제본선 + 우 480px) -->
+      <!-- ----------------------------------------------------------------------- -->
+      <div class="relative w-full h-full flex rounded-lg overflow-hidden">
+
+        <!-- 중앙 16px 제본선 (항상 x=472px 중심 위치, z-40) -->
+        <div class="absolute left-[472px] top-0 bottom-0 w-4 z-40 pointer-events-none bg-gradient-to-r from-stone-400 via-stone-300 to-stone-400 opacity-70 shadow-[inset_0_0_10px_rgba(0,0,0,0.3)]"></div>
+
+        <!-- ===================================================================== -->
+        <!-- [하부 바닥면 A] 좌측 480px: Inside Cover (하드커버 안쪽 소유자 서명란, z-10) -->
+        <!-- 표지 열린 직후(State 1)에는 보이고, 본문 진입 시(State 2~4)에는 속지가 위에 덮임 -->
+        <!-- ===================================================================== -->
+        <div id="panel-inside-cover" class="absolute left-0 top-0 w-[480px] h-full p-8 flex flex-col justify-between bg-[#242220] text-stone-200 z-10">
+          <div class="flex items-center justify-between border-b border-stone-700/50 pb-3">
+            <div class="text-xs font-mono text-stone-400">
+              <div>INSIDE COVER</div>
+              <div class="text-[10px] text-stone-500">PLAN-DO-SEE NOTEBOOK</div>
+            </div>
+            <button onclick="setState(0)" class="text-xs font-sans text-stone-400 hover:text-stone-200 px-2 py-1 rounded bg-stone-800 border border-stone-700">
+              표지 닫기
+            </button>
+          </div>
+
+          <div class="my-auto w-full max-w-[340px] mx-auto space-y-4">
+            <div class="text-xs font-mono text-stone-400">THIS DIARY BELONGS TO:</div>
+            <div class="border-b-2 border-stone-500 pb-1">
+              <input type="text" value="홍길동" class="w-full bg-transparent text-2xl font-serif text-stone-100 outline-none" readonly>
+            </div>
+            <p class="text-[11px] text-stone-500">서명된 소유자 정보는 브라우저에 안전하게 보관됩니다.</p>
+          </div>
+
+          <div class="flex items-center justify-between text-[10px] font-mono text-stone-500 border-t border-stone-800 pt-3">
+            <span>REGISTERED OWNER</span>
+            <span>ALEPH-06 • SYSTEM</span>
+          </div>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- [상부 양면 스프레드 면 B] 좌측 480px + 우측 480px 완벽 2면 분할 (z-20) -->
+        <!-- 본문 상태(State 2, 3, 4)에서 좌측 Inside Cover 위를 완전히 덮음! -->
+        <!-- ===================================================================== -->
+        <div id="panel-paper-spread" class="absolute inset-0 w-full h-full flex z-20">
+
+          <!-- ------------------------------------------------------------------- -->
+          <!-- 좌측 480px 흰색 속지 페이지 -->
+          <!-- ------------------------------------------------------------------- -->
+          <div id="spread-left-page" class="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4] bg-[#FDFBF7]">
+            <div>
+              <div class="flex items-center justify-between pb-3 border-b border-stone-200">
+                <span id="left-header-tag" class="font-mono text-xs font-semibold text-stone-700">PLAN-DO-SEE</span>
+                <span id="left-page-number" class="font-mono text-[11px] text-stone-400">PAGE 01</span>
+              </div>
+
+              <!-- 좌측 페이지 가변 본문 컨테이너 -->
+              <div id="left-page-content" class="mt-3">
+                <!-- 동적 치환 영역 -->
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
+              <span id="left-footer-label">LEFT SPREAD</span>
+              <span id="left-footer-page">PAGE 01</span>
+            </div>
+          </div>
+
+          <!-- ------------------------------------------------------------------- -->
+          <!-- 우측 480px 흰색 속지 페이지 -->
+          <!-- ------------------------------------------------------------------- -->
+          <div id="spread-right-page" class="w-[480px] h-full p-8 flex flex-col justify-between bg-[#FDFBF7]">
+            <div>
+              <div class="flex items-center justify-between pb-3 border-b border-stone-200">
+                <span id="right-header-tag" class="font-mono text-xs font-semibold text-stone-700">CONTINUED</span>
+                <span id="right-page-number" class="font-mono text-[11px] text-stone-400">PAGE 02</span>
+              </div>
+
+              <!-- 우측 페이지 가변 본문 컨테이너 -->
+              <div id="right-page-content" class="mt-3">
+                <!-- 동적 치환 영역 -->
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
+              <span id="right-footer-label">RIGHT SPREAD</span>
+              <span id="right-footer-page">PAGE 02</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- 좌측 하단 절대 고정: 표지 닫기 버튼 -->
+      <div class="absolute bottom-3 left-4 z-50">
+        <button onclick="setState(0)" class="px-2.5 py-1 rounded bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 font-sans text-xs flex items-center gap-1 shadow-xs cursor-pointer">
+          ↻ 표지 닫기
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 시각 전환 로직 스크립트 -->
+  <!-- ========================================================================= -->
+  <script>
+    function setState(state) {
+      const stateLabel = document.getElementById('current-state-label');
+      const layerClosed = document.getElementById('layer-closed');
+      const layerOpened = document.getElementById('layer-opened');
+      const panelInsideCover = document.getElementById('panel-inside-cover');
+      const panelPaperSpread = document.getElementById('panel-paper-spread');
+      const leftPageContent = document.getElementById('left-page-content');
+      const rightPageContent = document.getElementById('right-page-content');
+
+      const tabWriting = document.getElementById('tab-btn-writing');
+      const tabReview = document.getElementById('tab-btn-review');
+      const tabArchive = document.getElementById('tab-btn-archive');
+
+      // 탭 스타일 초기화
+      [tabWriting, tabReview, tabArchive].forEach(t => {
+        t.className = "w-28 py-2.5 px-3 rounded-r-lg border-y border-r transition-all duration-200 flex flex-col items-start bg-stone-100 text-stone-600 border-stone-200";
+      });
+
+      if (state === 0) {
+        // STATE 0: 닫힘
+        stateLabel.innerText = "STATE 0: 닫힘 (Closed)";
+        stateLabel.className = "font-mono text-xs px-2 py-0.5 rounded bg-stone-200 text-stone-800 font-semibold";
+        layerClosed.classList.remove('hidden');
+        layerOpened.classList.add('hidden');
+      } else {
+        layerClosed.classList.add('hidden');
+        layerOpened.classList.remove('hidden');
+
+        if (state === 1) {
+          // STATE 1: 표지만 열린 상태 (좌: Inside Cover 노출, 우: Leaf 01 첫 속지)
+          stateLabel.innerText = "STATE 1: 표지만 열림 (좌: Inside Cover, 우: Leaf 01)";
+          stateLabel.className = "font-mono text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold";
+          tabWriting.classList.add('translate-x-2', 'bg-[#F2DFCE]', 'font-bold');
+
+          // 핵심 물리: 좌측 속지는 아직 넘어오지 않았으므로 Inside Cover가 보임!
+          panelInsideCover.classList.remove('hidden');
+          // 좌측 속지 면만 숨기고, 우측 속지 면만 노출
+          document.getElementById('spread-left-page').classList.add('opacity-0', 'pointer-events-none');
+          document.getElementById('spread-right-page').classList.remove('opacity-0', 'pointer-events-none');
+
+          rightPageContent.innerHTML = `
+            <div class="h-[430px] flex flex-col items-center justify-center text-center space-y-4">
+              <div class="text-4xl text-stone-400">📖</div>
+              <div class="space-y-1">
+                <div class="text-2xl font-serif text-stone-800">기록과 성찰의 시간</div>
+                <p class="text-xs text-stone-500">계획을 펼치고 실행의 발자취를 이어갑니다.</p>
+              </div>
+              <button onclick="setState(2)" class="mt-4 px-4 py-2 rounded-lg bg-stone-800 text-white text-xs font-semibold hover:bg-stone-900 transition-all cursor-pointer shadow">
+                다음 장 넘기기 →
+              </button>
+            </div>
+          `;
+        } else {
+          // STATE 2, 3, 4: 본문 전개 (속지가 좌측으로 완전히 덮여 양면 480px가 모두 온전히 노출됨!)
+          document.getElementById('spread-left-page').classList.remove('opacity-0', 'pointer-events-none');
+          document.getElementById('spread-right-page').classList.remove('opacity-0', 'pointer-events-none');
+
+          if (state === 2) {
+            // STATE 2: 기록 캔버스 (양면 빈 줄노트 + 인라인 취소선)
+            stateLabel.innerText = "STATE 2: 기록 캔버스 (양면 480px 완벽 분할 + 격줄 취소선)";
+            stateLabel.className = "font-mono text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold";
+            tabWriting.classList.add('translate-x-2', 'bg-[#F2DFCE]', 'font-bold');
+
+            // 좌측 페이지 내용: 계획 본문 + 인라인 취소선 교정
+            leftPageContent.innerHTML = `
+              <div class="pb-2 border-b-2 border-stone-400">
+                <div class="text-xl font-serif font-bold text-stone-900">2026 하반기 핵심 목표 수립</div>
+              </div>
+              <div class="mt-3 h-[380px] bg-ruled-lines space-y-0">
+                <div class="h-[54px] flex flex-col justify-between">
+                  <div class="h-[36px] flex items-center px-1 text-base font-serif text-stone-900">
+                    매일 아침 30분 CS 시스템 아키텍처 및 네트워크 표준 읽기
+                  </div>
+                  <div class="h-[18px]"></div>
+                </div>
+                <div class="h-[54px] flex flex-col justify-between">
+                  <div class="h-[36px] flex items-center px-1 text-base font-serif line-through text-stone-400">
+                    주 3회 5km 조깅 및 코어 운동 진행하기
+                  </div>
+                  <div class="h-[18px] px-1 text-xs font-serif text-[#991B1B]">
+                    ↳ 주 4회 7km 러닝 및 인터벌 트레이닝으로 상향 조정 (만년필 교정)
+                  </div>
+                </div>
+                <div class="h-[54px] flex flex-col justify-between">
+                  <div class="h-[36px] flex items-center px-1 text-base font-serif text-stone-900">
+                    DevSecOps 자동화 파이프라인 무중단 배포 설계서 완성
+                  </div>
+                  <div class="h-[18px]"></div>
+                </div>
+              </div>
+            `;
+
+            // 우측 페이지 내용: 이어지는 텍스트 및 새 장 넘김 버튼
+            rightPageContent.innerHTML = `
+              <div class="h-[430px] flex flex-col justify-between">
+                <div class="h-[380px] bg-ruled-lines flex flex-col items-center justify-center text-center p-6 text-stone-400">
+                  <p class="font-serif text-base text-stone-500">
+                    "좌측 페이지가 가득 차면<br>이곳 우측 면으로 글이 자연스럽게 이어집니다."
+                  </p>
+                  <p class="text-[11px] text-stone-400 mt-2">
+                    제본선(중앙 16px)에 글자가 묻히지 않는 독립 480px 캔버스
+                  </p>
+                </div>
+                <div class="flex items-center justify-end pt-2 border-t border-stone-200">
+                  <button onclick="alert('다음 속지로 플립')" class="px-3 py-1.5 rounded-lg bg-stone-800 text-white text-xs font-medium cursor-pointer">
+                    새 장 넘겨 할 일 작성 →
+                  </button>
+                </div>
+              </div>
+            `;
+          } else if (state === 3) {
+            // STATE 3: 돌아보기 (좌측 480px 지표 + 우측 480px 상세 목록)
+            stateLabel.innerText = "STATE 3: 돌아보기 (좌 480px 지표 + 우 480px 상세, 제본선 클리핑 해결!)";
+            stateLabel.className = "font-mono text-xs px-2 py-0.5 rounded bg-teal-100 text-teal-800 font-semibold";
+            tabReview.classList.add('translate-x-2', 'bg-[#D2E4E0]', 'font-bold');
+
+            // 좌측 페이지: 4대 지표 카드 그리드 (완벽한 좌측 480px 안착)
+            leftPageContent.innerHTML = `
+              <div class="space-y-4">
+                <div class="font-serif text-2xl text-stone-800">기록과 실행의 궤적</div>
+                <p class="text-xs text-stone-500">실행된 기록과 시간 차이를 분석한 4대 핵심 지표입니다.</p>
+                <div class="grid grid-cols-2 gap-3 mt-4">
+                  <div class="p-3 bg-stone-100/70 rounded border border-stone-200">
+                    <div class="text-[10px] text-stone-500">총 계획 수</div>
+                    <div class="text-2xl font-bold font-mono text-stone-800 mt-1">12<span class="text-xs font-normal">건</span></div>
+                  </div>
+                  <div class="p-3 bg-stone-100/70 rounded border border-stone-200">
+                    <div class="text-[10px] text-stone-500">완료된 할 일</div>
+                    <div class="text-2xl font-bold font-mono text-emerald-700 mt-1">28<span class="text-xs font-normal">건</span></div>
+                  </div>
+                  <div class="p-3 bg-stone-100/70 rounded border border-stone-200">
+                    <div class="text-[10px] text-stone-500">누적 실행 시간</div>
+                    <div class="text-2xl font-bold font-mono text-stone-800 mt-1">45<span class="text-xs font-normal">h</span></div>
+                  </div>
+                  <div class="p-3 bg-stone-100/70 rounded border border-stone-200">
+                    <div class="text-[10px] text-stone-500">평균 시간 오차</div>
+                    <div class="text-2xl font-bold font-mono text-blue-700 mt-1">±15<span class="text-xs font-normal">분</span></div>
+                  </div>
+                </div>
+              </div>
+            `;
+
+            // 우측 페이지: 상세 분석 목록
+            rightPageContent.innerHTML = `
+              <div class="space-y-3">
+                <div class="font-sans text-xs font-bold text-stone-800 pb-2 border-b border-stone-300">
+                  시간 오차 상세 대조표
+                </div>
+                <div class="space-y-2 text-xs">
+                  <div class="p-2.5 rounded bg-white border border-stone-200 flex justify-between">
+                    <span>네트워크 소켓 버퍼링 정리</span>
+                    <span class="font-mono text-emerald-600 font-semibold">+10분 (정확)</span>
+                  </div>
+                  <div class="p-2.5 rounded bg-white border border-stone-200 flex justify-between">
+                    <span>바인더 2-Tier 캔버스 구현</span>
+                    <span class="font-mono text-amber-600 font-semibold">+25분 (초과)</span>
+                  </div>
+                </div>
+              </div>
+            `;
+          } else if (state === 4) {
+            // STATE 4: 보관함 (좌측 480px 삭제된 계획 + 우측 480px 삭제된 할 일)
+            stateLabel.innerText = "STATE 4: 보관함 (좌 480px 삭제계획 + 우 480px 삭제할일, 잘림 0%!)";
+            stateLabel.className = "font-mono text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-semibold";
+            tabArchive.classList.add('translate-x-2', 'bg-[#DFD3DF]', 'font-bold');
+
+            // 좌측 페이지: 삭제된 계획 보관함
+            leftPageContent.innerHTML = `
+              <div class="space-y-4">
+                <div class="font-serif text-2xl text-stone-800">지워진 생각의 보관함</div>
+                <p class="text-xs text-stone-500">삭제된 계획 카드가 안전하게 임시 보관되는 좌측 면입니다.</p>
+                <div class="p-4 rounded-lg bg-stone-100 border border-dashed border-stone-300 space-y-2 opacity-80">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="line-through text-stone-500">2026 상반기 취미 플랜</span>
+                    <span class="text-[10px] text-stone-400">삭제됨</span>
+                  </div>
+                  <button class="text-[11px] text-blue-700 font-medium">↶ 계획 복구</button>
+                </div>
+              </div>
+            `;
+
+            // 우측 페이지: 삭제된 할 일 보관함
+            rightPageContent.innerHTML = `
+              <div class="space-y-4">
+                <div class="font-serif text-2xl text-stone-800">삭제된 할 일 목록</div>
+                <p class="text-xs text-stone-500">7일 후 영구 삭제되는 우측 휴지통 영역입니다.</p>
+                <div class="p-3 rounded bg-white border border-stone-200 flex items-center justify-between opacity-70">
+                  <span class="text-xs line-through text-stone-500">사용하지 않는 테스트 메모</span>
+                  <button class="text-xs text-stone-400 hover:text-red-600">영구 삭제</button>
+                </div>
+              </div>
+            `;
+          }
+        }
+      }
+    }
+
+    // 초기 상태 1로 시작
+    setState(1);
+  </script>
+</body>
+</html>
