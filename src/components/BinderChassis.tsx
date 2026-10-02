@@ -6,6 +6,7 @@ import { IndexTabs } from './IndexTabs';
 import { WritingCanvas } from './WritingCanvas';
 import { TitlePageView } from './TitlePageView';
 import { PageCascadeOverlay } from './PageCascadeOverlay';
+import { SingleLeafFlipOverlay } from './SingleLeafFlipOverlay';
 import { SectionTab, PlanPackage } from '../types/binder';
 import { planPackageService } from '../services/planPackageService';
 import { BarChart3, Trash2 } from 'lucide-react';
@@ -30,6 +31,10 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
 
   // 표지 3D 플립 애니메이션 진행 플래그 (450ms 동안 CoverView z-30 유지 후 바닥 z-10 안착)
   const [isCoverFlipping, setIsCoverFlipping] = useState(false);
+
+  // 단일 낱장 속지 3D 플립 모션 플래그 및 방향
+  const [isLeafFlipping, setIsLeafFlipping] = useState(false);
+  const [leafFlipDirection, setLeafFlipDirection] = useState<'forward' | 'backward'>('forward');
 
   // 다중 계획 패키지 상태 (localStorage 연동)
   const [packages, setPackages] = useState<PlanPackage[]>(() =>
@@ -88,16 +93,28 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     }, 450);
   };
 
-  // 속표지(Leaf 01) 넘김 핸들러: 본문 양면 스프레드로 진입
+  // 속표지(Leaf 01) 넘김 핸들러: 실물 낱장 속지 3D 플립 후 본문 양면 스프레드로 진입
   const handleTurnTitlePage = () => {
-    setHasTurnedTitlePage(true);
+    if (isLeafFlipping) return;
+    setLeafFlipDirection('forward');
+    setIsLeafFlipping(true);
+    setTimeout(() => {
+      setHasTurnedTitlePage(true);
+      setIsLeafFlipping(false);
+    }, 320);
   };
 
   // 본문에서 속표지로 뒤로가기 핸들러
   const handleReturnToTitlePage = () => {
-    setHasTurnedTitlePage(false);
-    setActiveTab('writing');
-    setWritingSpread(0);
+    if (isLeafFlipping) return;
+    setLeafFlipDirection('backward');
+    setIsLeafFlipping(true);
+    setTimeout(() => {
+      setHasTurnedTitlePage(false);
+      setActiveTab('writing');
+      setWritingSpread(0);
+      setIsLeafFlipping(false);
+    }, 320);
   };
 
   // 상위 컴포넌트에 표지 닫기 핸들러 등록
@@ -181,6 +198,12 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
           <PageCascadeOverlay
             isCascading={isCascading}
             direction={cascadeDirection}
+          />
+
+          {/* 단일 낱장 속지 넘김 3D 플립 오버레이 */}
+          <SingleLeafFlipOverlay
+            isFlipping={isLeafFlipping}
+            direction={leafFlipDirection}
           />
 
           {/* ---------------- 단계별 속지 컨텐츠 ---------------- */}
