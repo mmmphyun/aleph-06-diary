@@ -62,16 +62,37 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     setCurrentPackageId(pkgId);
   };
 
-  // 계획 신규 생성 핸들러
-  const handleCreatePackage = (title: string) => {
-    const newPkg = planPackageService.createPackage(title);
+  // 계획 신규 생성 핸들러 (속표지 캘린더 연동)
+  const handleCreatePackage = (title: string, startDate?: string, endDate?: string) => {
+    const newPkg = planPackageService.createPackage(title, startDate, endDate);
     setPackages(planPackageService.loadPackages());
     setCurrentPackageId(newPkg.id);
   };
 
-  // 현재 선택된 패키지 객체 추출
+  // 계획 확정 핸들러
+  const handleConfirmPlan = () => {
+    planPackageService.confirmPlan(currentPackageId);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // 마지막 속지에서 다음 새 계획 패키지 연속 결속 핸들러
+  const handleAppendNewPlanPackage = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const newPkg = planPackageService.createPackage(`계획 ${packages.length + 1}`, today, today);
+    setPackages(planPackageService.loadPackages());
+    setCurrentPackageId(newPkg.id);
+    setWritingSpread(0);
+    setLeafFlipDirection('forward');
+    setIsLeafFlipping(true);
+    setTimeout(() => {
+      setIsLeafFlipping(false);
+    }, 280);
+  };
+
+  // 현재 선택된 패키지 객체 추출 및 챕터 번호 계산
   const currentPackage =
     packages.find((p) => p.id === currentPackageId) || packages[0];
+  const chapterNumber = Math.max(1, packages.findIndex((p) => p.id === currentPackageId) + 1);
 
   // 계획 본문 업데이트 핸들러
   const handleUpdatePlan = (title: string, content: string) => {
@@ -316,6 +337,9 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                   onToggleTask={handleToggleTask}
                   onUpdateLogComment={handleUpdateLogComment}
                   onApplyTasksTemplate={handleApplyTasksTemplate}
+                  onConfirmPlan={handleConfirmPlan}
+                  onAppendNewPlanPackage={handleAppendNewPlanPackage}
+                  chapterNumber={chapterNumber}
                 />
               )}
 
@@ -333,7 +357,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                       <BarChart3 className="w-4 h-4 text-teal-700" />
                       <span className="font-mono text-xs font-semibold text-stone-700">REVIEW SECTION</span>
                     </div>
-                    <span className="font-mono text-[11px] text-stone-400">PAGE 07</span>
+                    <span className="font-mono text-[11px] text-stone-400">REVIEW P.01</span>
                   </div>
                   <div className="mt-4 space-y-4">
                     <div>
@@ -364,7 +388,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                 </div>
                 <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
                   <span>ALEPH-06 REVIEW</span>
-                  <span>PAGE 07</span>
+                  <span>REVIEW P.01</span>
                 </div>
               </div>
 
@@ -376,7 +400,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                 <div>
                   <div className="flex items-center justify-between pb-3 border-b border-stone-200">
                     <span className="font-mono text-xs font-semibold text-stone-700">TIME VARIANCE</span>
-                    <span className="font-mono text-[11px] text-stone-400">PAGE 08</span>
+                    <span className="font-mono text-[11px] text-stone-400">REVIEW P.02</span>
                   </div>
                   <div className="mt-4 space-y-3">
                     <div className="font-sans text-xs font-bold text-stone-800 pb-2 border-b border-stone-200">
@@ -407,7 +431,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                 </div>
                 <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
                   <span>ALEPH-06 REVIEW</span>
-                  <span>PAGE 08</span>
+                  <span>REVIEW P.02</span>
                 </div>
               </div>
             </div>
@@ -427,7 +451,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                       <Trash2 className="w-4 h-4 text-purple-700" />
                       <span className="font-mono text-xs font-semibold text-stone-700">ARCHIVE SECTION</span>
                     </div>
-                    <span className="font-mono text-[11px] text-stone-400">PAGE 09</span>
+                    <span className="font-mono text-[11px] text-stone-400">ARCHIVE P.01</span>
                   </div>
                   <div className="mt-4 space-y-4">
                     <div>
@@ -452,7 +476,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                 </div>
                 <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
                   <span>ALEPH-06 ARCHIVE</span>
-                  <span>PAGE 09</span>
+                  <span>ARCHIVE P.01</span>
                 </div>
               </div>
 
@@ -464,7 +488,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                 <div>
                   <div className="flex items-center justify-between pb-3 border-b border-stone-200">
                     <span className="font-mono text-xs font-semibold text-stone-700">DELETED TASKS</span>
-                    <span className="font-mono text-[11px] text-stone-400">PAGE 10</span>
+                    <span className="font-mono text-[11px] text-stone-400">ARCHIVE P.02</span>
                   </div>
                   <div className="mt-4 space-y-4">
                     <div>
@@ -486,7 +510,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                 </div>
                 <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
                   <span>ALEPH-06 ARCHIVE</span>
-                  <span>PAGE 10</span>
+                  <span>ARCHIVE P.02</span>
                 </div>
               </div>
             </div>
