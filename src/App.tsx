@@ -27,8 +27,11 @@ export const App: React.FC = () => {
 
   return (
     <PersonalizationProvider>
-      {/* 무채색 웜스톤 데스크 캔버스 */}
-      <main className="min-h-screen w-full bg-[#EFECE6] flex items-center justify-center p-2 selection:bg-stone-300 selection:text-stone-900 overflow-hidden">
+      {/* 테마 연동 웜스톤 데스크 캔버스 */}
+      <main
+        className="min-h-screen w-full flex items-center justify-center p-2 selection:bg-stone-300 selection:text-stone-900 overflow-hidden transition-colors duration-300"
+        style={{ backgroundColor: 'var(--color-desk, #EFECE6)' }}
+      >
         {/* 뷰포트 스케일링 래퍼 */}
         <div
           className="flex flex-col items-center justify-center transition-transform duration-100 ease-out"

@@ -6,6 +6,7 @@ export interface ThemeDefinition {
   id: ThemeId;
   name: string;
   cover: string;
+  desk: string;
   paper: string;
   primaryTab: string;
   secondaryTab: string;
@@ -25,6 +26,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     id: 'theme-1',
     name: '포레스트 세이지 & 머스터드',
     cover: '#1F2F23',
+    desk: '#E5ECE6',
     paper: '#FDFBF7',
     primaryTab: '#4D7C5F',
     secondaryTab: '#D9A74A',
@@ -36,7 +38,8 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     id: 'theme-2',
     name: '미드나잇 네이비 & 테라코타',
     cover: '#1E2638',
-    paper: '#FDFBF7',
+    desk: '#E2E6EC',
+    paper: '#FAF8F5',
     primaryTab: '#7CA5B8',
     secondaryTab: '#C85A32',
     memoBg: '#F8EDE6',
@@ -47,7 +50,8 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     id: 'theme-3',
     name: '매트 흑연 & 앰버',
     cover: '#2B2A27',
-    paper: '#FDFBF7',
+    desk: '#EAE4DC',
+    paper: '#FBF9F4',
     primaryTab: '#8C887B',
     secondaryTab: '#E5A93C',
     memoBg: '#FEF7EA',
@@ -58,6 +62,7 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     id: 'theme-4',
     name: '웜 토프 & 더스티 슬레이트 (기본)',
     cover: '#3A3632',
+    desk: '#EFECE6',
     paper: '#FDFBF7',
     primaryTab: '#4A6B82',
     secondaryTab: '#B8736B',

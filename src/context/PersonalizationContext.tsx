@@ -72,6 +72,7 @@ export const PersonalizationProvider: React.FC<{ children: React.ReactNode }> = 
     const root = document.documentElement;
 
     root.style.setProperty('--color-cover', selectedTheme.cover);
+    root.style.setProperty('--color-desk', selectedTheme.desk);
     root.style.setProperty('--color-paper', selectedTheme.paper);
     root.style.setProperty('--color-primary-tab', selectedTheme.primaryTab);
     root.style.setProperty('--color-secondary-tab', selectedTheme.secondaryTab);
