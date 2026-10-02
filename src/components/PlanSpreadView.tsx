@@ -23,9 +23,12 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
   onNavigateNextSpread,
   onNavigateToTitlePage,
 }) => {
-  // 본문 편집 모드 (자유 연속 타이핑 및 자동 줄바꿈) vs 열람/교정 모드 (줄노트 판면 & 드래그 취소선)
+  // 본문 편집 모드 (양면 무스크롤 2-Pane 에디터) vs 판면 모드 (54px 격줄 렌더러 & 만년필 교정)
   const [isEditing, setIsEditing] = useState(false);
-  const [tempContent, setTempContent] = useState(planContent);
+
+  // 무스크롤 양면 분할 입력 상태 (좌 7줄, 우 7줄)
+  const [leftEditorText, setLeftEditorText] = useState('');
+  const [rightEditorText, setRightEditorText] = useState('');
 
   // 드래그 선택 영역 플로팅 버블 상태
   const [selectionBubble, setSelectionBubble] = useState<{
@@ -38,10 +41,63 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [correctionInput, setCorrectionInput] = useState('');
 
+  const leftPaneRef = useRef<HTMLDivElement>(null);
+  const rightPaneRef = useRef<HTMLDivElement>(null);
+  const rightTextareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 마우스 드래그 선택 감지 핸들러
-  const handleMouseUp = () => {
+  // 본문을 줄 단위로 분할 (좌측 7줄, 우측 7줄)
+  const LINES_PER_PAGE = 7;
+  const contentLines = planContent.split('\n').filter(Boolean);
+  const leftLines = contentLines.slice(0, LINES_PER_PAGE);
+  const rightLines = contentLines.slice(LINES_PER_PAGE, LINES_PER_PAGE * 2);
+
+  // 편집 모드 진입 시 양면 텍스트 분할 초기화
+  const handleStartEditing = () => {
+    const lines = planContent.split('\n');
+    setLeftEditorText(lines.slice(0, LINES_PER_PAGE).join('\n'));
+    setRightEditorText(lines.slice(LINES_PER_PAGE, LINES_PER_PAGE * 2).join('\n'));
+    setIsEditing(true);
+    setSelectionBubble(null);
+  };
+
+  // 편집 저장 및 전체 본문 병합
+  const handleSaveEditing = () => {
+    const leftTrimmed = leftEditorText.split('\n').slice(0, LINES_PER_PAGE);
+    const rightTrimmed = rightEditorText.split('\n').slice(0, LINES_PER_PAGE);
+    const merged = [...leftTrimmed, ...rightTrimmed].filter((l) => l.trim().length > 0).join('\n');
+    onUpdateContent(merged);
+    setIsEditing(false);
+  };
+
+  // 좌측 7행 에디터 줄바꿈 및 오버플로우 방어
+  const handleLeftTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    const lines = val.split('\n');
+    if (lines.length > LINES_PER_PAGE) {
+      // 7줄 초과 시 8번째 줄 이후 내용은 우측 에디터로 자동 전송
+      setLeftEditorText(lines.slice(0, LINES_PER_PAGE).join('\n'));
+      const overflow = lines.slice(LINES_PER_PAGE).join('\n');
+      setRightEditorText((prev) => (prev ? `${overflow}\n${prev}` : overflow));
+      rightTextareaRef.current?.focus();
+    } else {
+      setLeftEditorText(val);
+    }
+  };
+
+  // 우측 7행 에디터 줄바꿈 제어 (최대 7줄 초과 방어)
+  const handleRightTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    const lines = val.split('\n');
+    if (lines.length > LINES_PER_PAGE) {
+      setRightEditorText(lines.slice(0, LINES_PER_PAGE).join('\n'));
+    } else {
+      setRightEditorText(val);
+    }
+  };
+
+  // 오직 줄노트 판면 영역에서만 발동되는 드래그 선택 핸들러
+  const handleRuledAreaMouseUp = (pane: 'left' | 'right') => {
     if (isEditing) return;
 
     const selection = window.getSelection();
@@ -56,8 +112,18 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
       return;
     }
 
+    // 드래그된 텍스트가 실제 본문 내용에 포함되어 있는지 엄격 검사
+    const targetLines = pane === 'left' ? leftLines : rightLines;
+    const existsInLines = targetLines.some((l) => l.includes(selectedText));
+    if (!existsInLines) {
+      setSelectionBubble(null);
+      return;
+    }
+
     // 이미 교정된 텍스트와 중복 교정 방어 (1회 교정 원칙)
-    const isAlreadyRevised = revisions.some((r) => r.originalText.includes(selectedText) || selectedText.includes(r.originalText));
+    const isAlreadyRevised = revisions.some(
+      (r) => r.originalText.includes(selectedText) || selectedText.includes(r.originalText)
+    );
     if (isAlreadyRevised) {
       setSelectionBubble(null);
       return;
@@ -108,21 +174,8 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
     window.getSelection()?.removeAllRanges();
   };
 
-  // 편집 완료 및 본문 동기화
-  const handleSaveContent = () => {
-    onUpdateContent(tempContent);
-    setIsEditing(false);
-  };
-
-  // 본문을 줄 단위로 분할 (좌측 7줄, 우측 7줄)
-  const LINES_PER_PAGE = 7;
-  const contentLines = planContent.split('\n').filter(Boolean);
-  const leftLines = contentLines.slice(0, LINES_PER_PAGE);
-  const rightLines = contentLines.slice(LINES_PER_PAGE, LINES_PER_PAGE * 2);
-
   // 줄 텍스트 내부의 취소선 및 교정문 렌더링 헬퍼
   const renderLineWithRevisions = (lineText: string) => {
-    // 해당 줄에 걸쳐 있는 교정 항목 검색
     const matchedRev = revisions.find((r) => lineText.includes(r.originalText));
 
     if (!matchedRev) {
@@ -137,7 +190,6 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
     return (
       <span className="font-handwriting text-base leading-normal">
         <span className="text-stone-900">{parts[0]}</span>
-        {/* 아날로그 만년필 인라인 취소선 + 바로 아래 18px 교정문 */}
         <ruby className="inline-flex flex-col align-bottom">
           <span className="line-through text-stone-400 decoration-stone-500 decoration-2">
             {matchedRev.originalText}
@@ -152,11 +204,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
   };
 
   return (
-    <div
-      ref={containerRef}
-      onMouseUp={handleMouseUp}
-      className="relative w-full h-full flex select-text"
-    >
+    <div ref={containerRef} className="relative w-full h-full flex select-text">
       {/* ---------------- 플로팅 교정 버블 ---------------- */}
       {selectionBubble && !isPopoverOpen && !isEditing && (
         <div
@@ -221,9 +269,10 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* [좌측 면: Plan Left (480×640px)] */}
+      {/* [좌측 면: Plan Left (480×640px)] 1~7번째 줄 */}
       {/* ========================================================================= */}
       <div
+        ref={leftPaneRef}
         className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4]"
         style={{ backgroundColor: 'var(--color-paper)' }}
       >
@@ -241,14 +290,13 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
                 type="button"
                 onClick={() => {
                   if (isEditing) {
-                    handleSaveContent();
+                    handleSaveEditing();
                   } else {
-                    setTempContent(planContent);
-                    setIsEditing(true);
+                    handleStartEditing();
                   }
                 }}
                 className="flex items-center gap-1 font-sans text-[11px] text-stone-600 hover:text-stone-900 px-2 py-0.5 rounded bg-stone-100 hover:bg-stone-200 border border-stone-200 cursor-pointer transition-colors"
-                title={isEditing ? '입력 완료' : '본문 전체 편집'}
+                title={isEditing ? '작성 완료 및 판면 복귀' : '본문 양면 무스크롤 편집'}
               >
                 {isEditing ? <Check className="w-3 h-3 text-emerald-600" /> : <Edit3 className="w-3 h-3" />}
                 <span>{isEditing ? '작성 완료' : '본문 편집'}</span>
@@ -268,14 +316,18 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
             />
           </div>
 
-          {/* 좌측 줄노트 영역: 편집 모드(textarea) vs 판면 모드(54px 격줄 렌더러) */}
-          <div className="mt-3 h-[380px] bg-ruled-lines overflow-hidden space-y-0">
+          {/* 좌측 줄노트 영역: 무스크롤 7행 에디터 vs 판면 모드 */}
+          <div
+            onMouseUp={() => handleRuledAreaMouseUp('left')}
+            className="mt-3 h-[378px] bg-ruled-lines overflow-hidden space-y-0"
+          >
             {isEditing ? (
               <textarea
-                value={tempContent}
-                onChange={(e) => setTempContent(e.target.value)}
-                placeholder="계획 본문을 자유롭게 적으세요. Enter를 치거나 긴 글을 쓰면 자연스럽게 줄바꿈되며 우측 페이지로 이어집니다."
-                className="w-full h-full bg-transparent font-handwriting text-base text-stone-900 leading-[54px] p-1 outline-none resize-none"
+                value={leftEditorText}
+                onChange={handleLeftTextareaChange}
+                rows={7}
+                placeholder="1~7번째 줄을 작성하세요. 7줄을 초과하면 우측 페이지로 커서가 자동 점프합니다."
+                className="w-full h-[378px] bg-transparent font-handwriting text-base text-stone-900 leading-[54px] p-0 outline-none resize-none overflow-hidden scrollbar-none"
               />
             ) : (
               leftLines.map((lineText, idx) => (
@@ -307,9 +359,10 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* [우측 면: Plan Right (480×640px)] 이어지는 텍스트 및 새 장 넘김 */}
+      {/* [우측 면: Plan Right (480×640px)] 8~14번째 줄 */}
       {/* ========================================================================= */}
       <div
+        ref={rightPaneRef}
         className="w-[480px] h-full p-8 flex flex-col justify-between"
         style={{ backgroundColor: 'var(--color-paper)' }}
       >
@@ -319,28 +372,30 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
             <span className="font-mono text-[11px] text-stone-400">PAGE 02</span>
           </div>
 
-          {/* 우측 줄노트 영역 (좌측 7줄 초과분 자연 렌더링) */}
-          <div className="mt-6 h-[400px] bg-ruled-lines overflow-hidden space-y-0">
+          {/* 우측 줄노트 영역: 무스크롤 7행 에디터 vs 판면 모드 */}
+          <div
+            onMouseUp={() => handleRuledAreaMouseUp('right')}
+            className="mt-6 h-[378px] bg-ruled-lines overflow-hidden space-y-0"
+          >
             {isEditing ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400 border border-dashed border-stone-200 rounded-lg">
-                <Edit3 className="w-8 h-8 text-stone-300 mb-2 stroke-1" />
-                <p className="font-handwriting text-base text-stone-600">
-                  "좌측 페이지에서 본문을 자유롭게 작성 중입니다."
-                </p>
-                <p className="font-sans text-[11px] text-stone-400 mt-2">
-                  작성을 마치고 상단 [작성 완료]를 누르면 우측 페이지까지 자연스럽게 정렬됩니다.
-                </p>
-              </div>
+              <textarea
+                ref={rightTextareaRef}
+                value={rightEditorText}
+                onChange={handleRightTextareaChange}
+                rows={7}
+                placeholder="8~14번째 줄이 이어집니다. 스크롤바 없이 7줄에 맞춰 정돈됩니다."
+                className="w-full h-[378px] bg-transparent font-handwriting text-base text-stone-900 leading-[54px] p-0 outline-none resize-none overflow-hidden scrollbar-none"
+              />
             ) : rightLines.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400">
                 <Sparkles className="w-7 h-7 text-stone-300 mb-2 stroke-1" />
                 <p className="font-handwriting text-lg text-stone-500">
                   "좌측 페이지가 가득 차면
                   <br />
-                  이곳으로 글이 자연스럽게 흘러옵니다."
+                  이곳으로 글이 자연스럽게 이어집니다."
                 </p>
                 <p className="font-sans text-[11px] text-stone-400 mt-2">
-                  단어 드래그로 만년필 취소선을 긋거나, 상단 [본문 편집]으로 글을 추가하세요.
+                  단어를 드래그하여 만년필 취소선을 긋거나 [본문 편집]을 눌러 글을 이어가세요.
                 </p>
               </div>
             ) : (
