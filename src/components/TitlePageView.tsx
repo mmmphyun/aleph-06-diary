@@ -35,8 +35,8 @@ export const TitlePageView: React.FC<TitlePageViewProps> = ({
 
   return (
     <div
-      className="w-[480px] h-full p-8 flex flex-col justify-between select-none"
-      style={{ backgroundColor: 'var(--color-paper)' }}
+      className="w-[480px] h-full p-8 flex flex-col justify-between select-none relative"
+      style={{ backgroundColor: 'var(--color-paper)', zIndex: 25 }}
     >
       {/* 상단 에디토리얼 타이틀 & 발간 정보 */}
       <div>

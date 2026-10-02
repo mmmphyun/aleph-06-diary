@@ -51,9 +51,10 @@ export const IndexTabs: React.FC<IndexTabsProps> = ({
 
   return (
     <aside
-      className={`absolute top-16 z-50 flex flex-col gap-3 select-none transition-all duration-300 ${
-        peekOnly ? '-right-5 pointer-events-none opacity-75' : '-right-7'
+      className={`absolute top-16 flex flex-col gap-3 select-none transition-all duration-300 ${
+        peekOnly ? '-right-3 pointer-events-none' : '-right-7'
       }`}
+      style={{ zIndex: 22 }}
       aria-label="바인더 대분류 인덱스 탭"
     >
       {tabs.map((tab) => {

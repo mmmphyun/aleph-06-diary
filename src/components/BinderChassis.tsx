@@ -150,12 +150,15 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   // 속표지(Leaf 01) 넘김 핸들러: 실물 낱장 속지 3D 플립 후 본문 양면 스프레드로 진입
   const handleTurnTitlePage = () => {
     if (isLeafFlipping) return;
+    setWritingSpread(0);
     setLeafFlipDirection('forward');
     setIsLeafFlipping(true);
     setTimeout(() => {
       setHasTurnedTitlePage(true);
+    }, 140);
+    setTimeout(() => {
       setIsLeafFlipping(false);
-    }, 320);
+    }, 280);
   };
 
   // 본문에서 속표지로 뒤로가기 핸들러
@@ -167,8 +170,24 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
       setHasTurnedTitlePage(false);
       setActiveTab('writing');
       setWritingSpread(0);
+    }, 140);
+    setTimeout(() => {
       setIsLeafFlipping(false);
-    }, 320);
+    }, 280);
+  };
+
+  // 기록 섹션 내부 스프레드 간 3D 낱장 넘김 핸들러 (계획 ↔ 할 일 ↔ 실행 일지)
+  const handleNavigateWritingSpread = (nextSpread: number) => {
+    if (isLeafFlipping || nextSpread === writingSpread) return;
+    const direction = nextSpread > writingSpread ? 'forward' : 'backward';
+    setLeafFlipDirection(direction);
+    setIsLeafFlipping(true);
+    setTimeout(() => {
+      setWritingSpread(nextSpread);
+    }, 140);
+    setTimeout(() => {
+      setIsLeafFlipping(false);
+    }, 280);
   };
 
   // 상위 컴포넌트에 표지 닫기 핸들러 등록
@@ -263,7 +282,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
           {/* ---------------- 단계별 속지 컨텐츠 ---------------- */}
           {!hasTurnedTitlePage ? (
             /* [State 1: 속표지 단계 - 다이나믹 TOC 목차] 좌측은 투명 영역 (하부 Inside Cover 서명 폼 노출), 우측은 Leaf 01 Front */
-            <div className="w-full h-full flex">
+            <div className="w-full h-full flex relative" style={{ zIndex: 25 }}>
               <div className="w-[480px] h-full pointer-events-none" />
               <TitlePageView
                 packages={packages}
@@ -281,7 +300,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                 <WritingCanvas
                   currentPackage={currentPackage}
                   currentSpread={writingSpread}
-                  onNavigateSpread={(idx) => setWritingSpread(idx)}
+                  onNavigateSpread={handleNavigateWritingSpread}
                   onNavigateToTitlePage={handleReturnToTitlePage}
                   onUpdatePlan={handleUpdatePlan}
                   onAddRevision={handleAddRevision}

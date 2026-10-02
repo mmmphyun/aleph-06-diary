@@ -64,7 +64,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   const logsRight = logs.slice(LINES_PER_PAGE);
 
   return (
-    <div className="relative w-full h-full flex transform-style-preserve-3d select-none">
+    <div className="relative w-full h-full flex transform-style-preserve-3d select-none z-20">
       {/* ========================================================================= */}
       {/* [Spread 0: 계획 캔버스] 자연스러운 줄바꿈 본문 및 드래그 범위 만년필 1회 교정 */}
       {/* ========================================================================= */}
