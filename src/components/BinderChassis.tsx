@@ -6,7 +6,8 @@ import { IndexTabs } from './IndexTabs';
 import { WritingCanvas } from './WritingCanvas';
 import { TitlePageView } from './TitlePageView';
 import { PageCascadeOverlay } from './PageCascadeOverlay';
-import { SectionTab } from '../types/binder';
+import { SectionTab, PlanPackage } from '../types/binder';
+import { planPackageService } from '../services/planPackageService';
 import { BarChart3, Trash2 } from 'lucide-react';
 
 const TAB_ORDER: Record<SectionTab, number> = {
@@ -30,6 +31,14 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   // 표지 3D 플립 애니메이션 진행 플래그 (450ms 동안 CoverView z-30 유지 후 바닥 z-10 안착)
   const [isCoverFlipping, setIsCoverFlipping] = useState(false);
 
+  // 다중 계획 패키지 상태 (localStorage 연동)
+  const [packages, setPackages] = useState<PlanPackage[]>(() =>
+    planPackageService.loadPackages()
+  );
+  const [currentPackageId, setCurrentPackageId] = useState<string>(
+    () => packages[0]?.id || 'plan-01'
+  );
+
   // 속표지(Leaf 01 Front) 수동 넘김 여부 (true일 때만 본문 양면 스프레드 진입)
   const [hasTurnedTitlePage, setHasTurnedTitlePage] = useState(false);
 
@@ -42,6 +51,18 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   // Page Flip Cascade 모션 플래그 및 방향 (탭 전환 시 촤라락 넘김)
   const [isCascading, setIsCascading] = useState(false);
   const [cascadeDirection, setCascadeDirection] = useState<'forward' | 'backward'>('forward');
+
+  // 계획 선택 핸들러
+  const handleSelectPackage = (pkgId: string) => {
+    setCurrentPackageId(pkgId);
+  };
+
+  // 계획 신규 생성 핸들러
+  const handleCreatePackage = (title: string) => {
+    const newPkg = planPackageService.createPackage(title);
+    setPackages(planPackageService.loadPackages());
+    setCurrentPackageId(newPkg.id);
+  };
 
   // 앞표지 오픈: 단 1회 좌측 바닥(Inside Cover)으로 안착 후 영구 고정
   const handleOpenCover = () => {
@@ -164,10 +185,16 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
 
           {/* ---------------- 단계별 속지 컨텐츠 ---------------- */}
           {!hasTurnedTitlePage ? (
-            /* [State 1: 속표지 단계] 좌측은 투명 영역 (하부 Inside Cover 서명 폼 노출), 우측은 Leaf 01 Front */
+            /* [State 1: 속표지 단계 - 다이나믹 TOC 목차] 좌측은 투명 영역 (하부 Inside Cover 서명 폼 노출), 우측은 Leaf 01 Front */
             <div className="w-full h-full flex">
               <div className="w-[480px] h-full pointer-events-none" />
-              <TitlePageView onTurnPage={handleTurnTitlePage} />
+              <TitlePageView
+                packages={packages}
+                currentPackageId={currentPackageId}
+                onSelectPackage={handleSelectPackage}
+                onCreatePackage={handleCreatePackage}
+                onTurnPage={handleTurnTitlePage}
+              />
             </div>
           ) : (
             /* [State 2: 본문 양면 스프레드 단계] */
