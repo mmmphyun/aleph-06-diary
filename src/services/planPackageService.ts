@@ -47,6 +47,7 @@ export const INITIAL_PLAN_PACKAGES: PlanPackage[] = [
         comment: 'TIME_WAIT 상태와 SO_REUSEADDR 소켓 옵션의 연관 관계를 명확히 정립함.',
       },
     ],
+    tasksTemplateApplied: true,
     createdAt: '2026-10-01',
   },
   {
@@ -78,6 +79,7 @@ export const INITIAL_PLAN_PACKAGES: PlanPackage[] = [
         comment: 'Perspective 1400px 축 기반의 실물 낱장 회전 모션을 안착시킴.',
       },
     ],
+    tasksTemplateApplied: true,
     createdAt: '2026-10-02',
   },
 ];
@@ -118,9 +120,20 @@ export const planPackageService = {
       startPage: lastPage,
       tasks: [],
       logs: [],
+      tasksTemplateApplied: false,
       createdAt: new Date().toISOString().split('T')[0],
     };
     const updated = [...existing, newPkg];
+    this.savePackages(updated);
+    return newPkg;
+  },
+
+  applyTasksTemplate(pkgId: string): PlanPackage {
+    const existing = this.loadPackages();
+    const target = existing.find((p) => p.id === pkgId);
+    if (!target) return existing[0];
+    const newPkg: PlanPackage = { ...target, tasksTemplateApplied: true };
+    const updated = existing.map((p) => (p.id === pkgId ? newPkg : p));
     this.savePackages(updated);
     return newPkg;
   },

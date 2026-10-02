@@ -11,7 +11,10 @@ interface PlanSpreadViewProps {
   onAddRevision: (rev: TextRevision) => void;
   onNavigateNextSpread: () => void;
   onNavigateToTitlePage?: () => void;
+  onNavigatePrevSpread?: () => void;
   startPage?: number;
+  lineOffset?: number;
+  nextSpreadLabel?: string;
 }
 
 export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
@@ -23,7 +26,10 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
   onAddRevision,
   onNavigateNextSpread,
   onNavigateToTitlePage,
+  onNavigatePrevSpread,
   startPage = 1,
+  lineOffset = 0,
+  nextSpreadLabel,
 }) => {
   // 본문 편집 모드 (양면 무스크롤 2-Pane 에디터) vs 판면 모드 (54px 격줄 렌더러 & 만년필 교정)
   const [isEditing, setIsEditing] = useState(false);
@@ -52,14 +58,14 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
   const leftPageStr = `PAGE ${String(startPage).padStart(2, '0')}`;
   const rightPageStr = `PAGE ${String(startPage + 1).padStart(2, '0')}`;
   const contentLines = planContent.split('\n').filter(Boolean);
-  const leftLines = contentLines.slice(0, LINES_PER_PAGE);
-  const rightLines = contentLines.slice(LINES_PER_PAGE, LINES_PER_PAGE * 2);
+  const leftLines = contentLines.slice(lineOffset, lineOffset + LINES_PER_PAGE);
+  const rightLines = contentLines.slice(lineOffset + LINES_PER_PAGE, lineOffset + LINES_PER_PAGE * 2);
 
   // 편집 모드 진입 시 양면 텍스트 분할 초기화
   const handleStartEditing = () => {
     const lines = planContent.split('\n');
-    setLeftEditorText(lines.slice(0, LINES_PER_PAGE).join('\n'));
-    setRightEditorText(lines.slice(LINES_PER_PAGE, LINES_PER_PAGE * 2).join('\n'));
+    setLeftEditorText(lines.slice(lineOffset, lineOffset + LINES_PER_PAGE).join('\n'));
+    setRightEditorText(lines.slice(lineOffset + LINES_PER_PAGE, lineOffset + LINES_PER_PAGE * 2).join('\n'));
     setIsEditing(true);
     setSelectionBubble(null);
   };
@@ -68,7 +74,12 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
   const handleSaveEditing = () => {
     const leftTrimmed = leftEditorText.split('\n').slice(0, LINES_PER_PAGE);
     const rightTrimmed = rightEditorText.split('\n').slice(0, LINES_PER_PAGE);
-    const merged = [...leftTrimmed, ...rightTrimmed].filter((l) => l.trim().length > 0).join('\n');
+    const updatedChunk = [...leftTrimmed, ...rightTrimmed].filter((l) => l.trim().length > 0);
+
+    const allLines = planContent.split('\n');
+    const before = allLines.slice(0, lineOffset);
+    const after = allLines.slice(lineOffset + LINES_PER_PAGE * 2);
+    const merged = [...before, ...updatedChunk, ...after].join('\n');
     onUpdateContent(merged);
     setIsEditing(false);
   };
@@ -342,9 +353,19 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
           </div>
         </div>
 
-        {/* 좌측 하단 정보 & 속표지 뒤로가기 버튼 */}
+        {/* 좌측 하단 정보 & 속표지/이전 장 뒤로가기 버튼 */}
         <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
-          {onNavigateToTitlePage ? (
+          {onNavigatePrevSpread ? (
+            <button
+              type="button"
+              onClick={onNavigatePrevSpread}
+              className="font-sans text-xs text-stone-600 hover:text-stone-900 flex items-center gap-1 cursor-pointer"
+              title="이전 장으로 돌아가기"
+            >
+              <ArrowLeft className="w-3 h-3" />
+              <span>이전 장 (계획)</span>
+            </button>
+          ) : onNavigateToTitlePage ? (
             <button
               type="button"
               onClick={onNavigateToTitlePage}
@@ -411,16 +432,16 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
           </div>
         </div>
 
-        {/* 우측 하단: 다음 섹션(할 일)으로 새 장 넘김 버튼 */}
+        {/* 우측 하단: 다음 섹션으로 새 장 넘김 버튼 */}
         <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
           <span className="font-mono text-[10px] text-stone-400">{rightPageStr}</span>
           <button
             type="button"
             onClick={onNavigateNextSpread}
             className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
-            title="계획을 마치고 새로운 빈 속지로 넘어가 할 일 작성"
+            title="다음 페이지로 이동"
           >
-            <span>새 장 넘겨 할 일 작성</span>
+            <span>{nextSpreadLabel || "새 장 넘겨 할 일 작성"}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

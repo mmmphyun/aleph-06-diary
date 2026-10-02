@@ -14,7 +14,7 @@ import {
 
 interface WritingCanvasProps {
   currentPackage: PlanPackage;
-  currentSpread: number; // 0: 계획, 1: 할 일, 2: 실행 일지
+  currentSpread: number;
   onNavigateSpread: (spreadIndex: number) => void;
   onNavigateToTitlePage?: () => void;
   onUpdatePlan: (title: string, content: string) => void;
@@ -23,7 +23,14 @@ interface WritingCanvasProps {
   onDeleteTask: (taskId: string) => void;
   onToggleTask: (taskId: string, comment?: string) => void;
   onUpdateLogComment: (logId: string, comment: string) => void;
+  onApplyTasksTemplate: () => void;
 }
+
+type DynamicSpread =
+  | { kind: 'plan'; planIndex: number; lineOffset: number }
+  | { kind: 'blank' }
+  | { kind: 'tasks' }
+  | { kind: 'logs' };
 
 export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   currentPackage,
@@ -36,16 +43,46 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   onDeleteTask,
   onToggleTask,
   onUpdateLogComment,
+  onApplyTasksTemplate,
 }) => {
   const [newTaskInput, setNewTaskInput] = useState('');
 
   const { title: planTitle, content: planContent, revisions, tasks, logs } = currentPackage;
   const startPage = currentPackage.startPage || 1;
 
-  const pageSpread1Left = `PAGE ${String(startPage + 2).padStart(2, '0')}`;
-  const pageSpread1Right = `PAGE ${String(startPage + 3).padStart(2, '0')}`;
-  const pageSpread2Left = `PAGE ${String(startPage + 4).padStart(2, '0')}`;
-  const pageSpread2Right = `PAGE ${String(startPage + 5).padStart(2, '0')}`;
+  // 계획 본문 줄 분할 (14줄 단위 스프레드 분할)
+  const contentLines = planContent.split('\n').filter(Boolean);
+  const planSpreadCount = Math.max(1, Math.ceil(contentLines.length / 14));
+
+  // 동적 속지 스택(Dynamic Leaf Stack) 구성
+  const spreads: DynamicSpread[] = [];
+  for (let i = 0; i < planSpreadCount; i++) {
+    spreads.push({ kind: 'plan', planIndex: i, lineOffset: i * 14 });
+  }
+
+  // 할 일 템플릿 적용 여부에 따라 백지 속지 또는 할 일 속지 추가
+  const isTasksApplied = Boolean(currentPackage.tasksTemplateApplied || currentPackage.tasks.length > 0);
+  if (isTasksApplied) {
+    spreads.push({ kind: 'tasks' });
+  } else {
+    spreads.push({ kind: 'blank' });
+  }
+
+  // 할 일이 1개 이상 완료되었거나 실행 로그가 있으면 실행 일지 속지 자동 활성화
+  const hasCompletedTasks = currentPackage.tasks.some((t) => t.done) || currentPackage.logs.length > 0;
+  if (hasCompletedTasks && isTasksApplied) {
+    spreads.push({ kind: 'logs' });
+  }
+
+  // 유효한 현재 스프레드 인덱스 클램핑
+  const safeSpreadIndex = Math.min(Math.max(0, currentSpread), spreads.length - 1);
+  const activeSpread = spreads[safeSpreadIndex] || spreads[0];
+
+  // 동적 페이지 번호
+  const leftPageNum = startPage + safeSpreadIndex * 2;
+  const rightPageNum = leftPageNum + 1;
+  const leftPageStr = `PAGE ${String(leftPageNum).padStart(2, '0')}`;
+  const rightPageStr = `PAGE ${String(rightPageNum).padStart(2, '0')}`;
 
   // 할 일 추가 제출
   const handleAddTask = () => {
@@ -65,10 +102,8 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
 
   return (
     <div className="relative w-full h-full flex transform-style-preserve-3d select-none z-20">
-      {/* ========================================================================= */}
-      {/* [Spread 0: 계획 캔버스] 자연스러운 줄바꿈 본문 및 드래그 범위 만년필 1회 교정 */}
-      {/* ========================================================================= */}
-      {currentSpread === 0 && (
+      {/* ---------------- 1. 계획 스프레드 (Plan Spread) ---------------- */}
+      {activeSpread.kind === 'plan' && (
         <PlanSpreadView
           planTitle={planTitle}
           onUpdateTitle={(newTitle) => onUpdatePlan(newTitle, planContent)}
@@ -76,16 +111,111 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
           onUpdateContent={(newContent) => onUpdatePlan(planTitle, newContent)}
           revisions={revisions}
           onAddRevision={onAddRevision}
-          onNavigateNextSpread={() => onNavigateSpread(1)}
-          onNavigateToTitlePage={onNavigateToTitlePage}
-          startPage={startPage}
+          onNavigateNextSpread={() => onNavigateSpread(safeSpreadIndex + 1)}
+          onNavigatePrevSpread={safeSpreadIndex > 0 ? () => onNavigateSpread(safeSpreadIndex - 1) : undefined}
+          onNavigateToTitlePage={safeSpreadIndex === 0 ? onNavigateToTitlePage : undefined}
+          startPage={leftPageNum}
+          lineOffset={activeSpread.lineOffset}
+          nextSpreadLabel={
+            activeSpread.planIndex < planSpreadCount - 1
+              ? '계획 다음 장 보기'
+              : isTasksApplied
+              ? '새 장 넘겨 할 일 확인'
+              : '새 장 넘겨 할 일 속지'
+          }
         />
       )}
 
-      {/* ========================================================================= */}
-      {/* [Spread 1: 할 일 캔버스] 새로운 빈 속지 위 체크리스트 템플릿 */}
-      {/* ========================================================================= */}
-      {currentSpread === 1 && (
+      {/* ---------------- 2. 완전한 빈 속지 (Blank Spread) ---------------- */}
+      {activeSpread.kind === 'blank' && (
+        <>
+          {/* 좌측 면 (480×640px) */}
+          <div
+            className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4]"
+            style={{ backgroundColor: 'var(--color-paper)' }}
+          >
+            <div>
+              <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-semibold text-stone-700">PLAN-DO-SEE</span>
+                  <span className="font-mono text-[10px] text-stone-600 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
+                    새로운 빈 속지 (Leaf)
+                  </span>
+                </div>
+                <span className="font-mono text-[11px] text-stone-400">{leftPageStr}</span>
+              </div>
+
+              {/* 백지 판면 중앙 서식 날인 카드 */}
+              <div className="mt-14 p-6 rounded-xl border border-dashed border-stone-300 bg-white/70 shadow-xs flex flex-col items-center text-center space-y-3 backdrop-blur-2xs">
+                <div className="w-11 h-11 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-800 shadow-2xs">
+                  <CheckSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-stone-900">서식이 없는 백지 속지</h3>
+                  <p className="font-sans text-xs text-stone-500 mt-1.5 leading-relaxed max-w-[280px]">
+                    계획을 실행으로 옮기기 위한 첫 단계입니다.<br />
+                    할 일 체크리스트 템플릿을 날인하여 구체적인 항목을 배치하세요.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onApplyTasksTemplate}
+                  className="mt-2 px-4 py-2.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-100 font-sans font-medium text-xs transition-all shadow-sm flex items-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <Plus className="w-4 h-4 text-amber-300" />
+                  <span>할 일 체크리스트 템플릿 적용</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 좌측 하단: 이전 장(계획) 버튼 */}
+            <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => onNavigateSpread(safeSpreadIndex - 1)}
+                className="font-sans text-xs text-stone-600 hover:text-stone-900 flex items-center gap-1 cursor-pointer"
+              >
+                <ArrowLeft className="w-3 h-3" />
+                <span>이전 장 (계획)</span>
+              </button>
+              <span className="font-mono text-[10px] text-stone-400">{leftPageStr}</span>
+            </div>
+          </div>
+
+          {/* 우측 면 (480×640px) */}
+          <div
+            className="w-[480px] h-full p-8 flex flex-col justify-between"
+            style={{ backgroundColor: 'var(--color-paper)' }}
+          >
+            <div>
+              <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+                <span className="font-mono text-xs font-semibold text-stone-700">BLANK EXTENSION</span>
+                <span className="font-mono text-[11px] text-stone-400">{rightPageStr}</span>
+              </div>
+
+              <div className="mt-16 h-[340px] flex flex-col items-center justify-center text-center p-6 text-stone-400">
+                <Sparkles className="w-8 h-8 text-stone-300 mb-2 stroke-1" />
+                <p className="font-handwriting text-lg text-stone-500">
+                  "백지 위에 서식을 찍는 순간,
+                  <br />
+                  생각은 실천이 됩니다."
+                </p>
+                <p className="font-sans text-[11px] text-stone-400 mt-2">
+                  좌측 페이지에서 할 일 템플릿을 적용해 시작하세요.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
+              <span>ALEPH-06 BLANK</span>
+              <span>{rightPageStr}</span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ---------------- 3. 할 일 스프레드 (Tasks Spread) ---------------- */}
+      {activeSpread.kind === 'tasks' && (
         <>
           {/* 좌측 면 (Tasks Left: 480×640px) */}
           <div
@@ -100,7 +230,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                     섹션 2: 할 일 (Tasks)
                   </span>
                 </div>
-                <span className="font-mono text-[11px] text-stone-400">{pageSpread1Left}</span>
+                <span className="font-mono text-[11px] text-stone-400">{leftPageStr}</span>
               </div>
 
               <div className="mt-3 flex items-center justify-between pb-2 border-b border-stone-300">
@@ -167,17 +297,17 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
               </div>
             </div>
 
-            {/* 좌측 하단 이전 장 버튼 */}
+            {/* 좌측 하단: 이전 장 버튼 */}
             <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => onNavigateSpread(0)}
+                onClick={() => onNavigateSpread(safeSpreadIndex - 1)}
                 className="font-sans text-xs text-stone-600 hover:text-stone-900 flex items-center gap-1 cursor-pointer"
               >
                 <ArrowLeft className="w-3 h-3" />
                 <span>이전 장 (계획)</span>
               </button>
-              <span className="font-mono text-[10px] text-stone-400">{pageSpread1Left}</span>
+              <span className="font-mono text-[10px] text-stone-400">{leftPageStr}</span>
             </div>
           </div>
 
@@ -189,7 +319,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
             <div>
               <div className="flex items-center justify-between pb-3 border-b border-stone-200">
                 <span className="font-mono text-xs font-semibold text-stone-700">TASKS EXTENSION</span>
-                <span className="font-mono text-[11px] text-stone-400">{pageSpread1Right}</span>
+                <span className="font-mono text-[11px] text-stone-400">{rightPageStr}</span>
               </div>
 
               <div className="mt-4 h-[400px] overflow-hidden space-y-2">
@@ -242,27 +372,31 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
               </div>
             </div>
 
-            {/* 우측 하단: 실행 일지로 새 장 넘김 버튼 */}
+            {/* 우측 하단: 실행 일지로 새 장 넘김 버튼 (완료된 할 일이 있을 때만 활성화) */}
             <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
-              <span className="font-mono text-[10px] text-stone-400">{pageSpread1Right}</span>
-              <button
-                type="button"
-                onClick={() => onNavigateSpread(2)}
-                className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
-                title="다음 새로운 빈 속지로 넘어가 실행 일지 확인"
-              >
-                <span>새 장 넘겨 실행 일지</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <span className="font-mono text-[10px] text-stone-400">{rightPageStr}</span>
+              {hasCompletedTasks ? (
+                <button
+                  type="button"
+                  onClick={() => onNavigateSpread(safeSpreadIndex + 1)}
+                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                  title="다음 새로운 속지로 넘어가 실행 일지 확인"
+                >
+                  <span>새 장 넘겨 실행 일지</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <span className="text-[11px] font-sans text-stone-400">
+                  할 일을 1개 이상 완료 시 실행 일지가 생성됩니다
+                </span>
+              )}
             </div>
           </div>
         </>
       )}
 
-      {/* ========================================================================= */}
-      {/* [Spread 2: 실행 일지 캔버스] 할 일 완료 시 실시간 타임스탬프와 손글씨 코멘트 */}
-      {/* ========================================================================= */}
-      {currentSpread === 2 && (
+      {/* ---------------- 4. 실행 일지 스프레드 (Logs Spread) ---------------- */}
+      {activeSpread.kind === 'logs' && (
         <>
           {/* 좌측 면 (Logs Left: 480×640px) */}
           <div
@@ -277,7 +411,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                     섹션 3: 실행 일지 (Logs)
                   </span>
                 </div>
-                <span className="font-mono text-[11px] text-stone-400">{pageSpread2Left}</span>
+                <span className="font-mono text-[11px] text-stone-400">{leftPageStr}</span>
               </div>
 
               <div className="mt-3 flex items-center justify-between pb-2 border-b border-stone-300">
@@ -332,13 +466,13 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
             <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => onNavigateSpread(1)}
+                onClick={() => onNavigateSpread(safeSpreadIndex - 1)}
                 className="font-sans text-xs text-stone-600 hover:text-stone-900 flex items-center gap-1 cursor-pointer"
               >
                 <ArrowLeft className="w-3 h-3" />
                 <span>이전 장 (할 일)</span>
               </button>
-              <span className="font-mono text-[10px] text-stone-400">{pageSpread2Left}</span>
+              <span className="font-mono text-[10px] text-stone-400">{leftPageStr}</span>
             </div>
           </div>
 
@@ -350,7 +484,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
             <div>
               <div className="flex items-center justify-between pb-3 border-b border-stone-200">
                 <span className="font-mono text-xs font-semibold text-stone-700">LOG ARCHIVE</span>
-                <span className="font-mono text-[11px] text-stone-400">{pageSpread2Right}</span>
+                <span className="font-mono text-[11px] text-stone-400">{rightPageStr}</span>
               </div>
 
               <div className="mt-4 h-[400px] overflow-hidden space-y-3">
@@ -394,7 +528,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
 
             <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
               <span>ALEPH-06 LOGS</span>
-              <span>{pageSpread2Right}</span>
+              <span>{rightPageStr}</span>
             </div>
           </div>
         </>

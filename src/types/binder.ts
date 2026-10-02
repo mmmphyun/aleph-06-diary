@@ -18,6 +18,7 @@ export interface PlanPackage {
   startPage: number; // 목차 연동 시작 페이지 (예: 1, 5, 9...)
   tasks: TaskItem[]; // 하위 할 일 목록 (1:N)
   logs: LogItem[]; // 하위 실행 일지 목록 (1:N)
+  tasksTemplateApplied?: boolean; // 빈 속지에서 할 일 템플릿 적용 여부
   createdAt: string;
 }
 

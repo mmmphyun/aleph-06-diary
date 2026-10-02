@@ -113,6 +113,12 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     setPackages(planPackageService.loadPackages());
   };
 
+  // 빈 속지에서 할 일 템플릿 적용 핸들러
+  const handleApplyTasksTemplate = () => {
+    planPackageService.applyTasksTemplate(currentPackageId);
+    setPackages(planPackageService.loadPackages());
+  };
+
   // 돌아보기 섹션용 실시간 누적 집계 통계
   const totalPlansCount = packages.length;
   const totalTasksCount = packages.reduce((acc, p) => acc + p.tasks.length, 0);
@@ -309,6 +315,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                   onDeleteTask={handleDeleteTask}
                   onToggleTask={handleToggleTask}
                   onUpdateLogComment={handleUpdateLogComment}
+                  onApplyTasksTemplate={handleApplyTasksTemplate}
                 />
               )}
 
