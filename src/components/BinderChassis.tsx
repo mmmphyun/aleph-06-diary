@@ -11,6 +11,9 @@ export const BinderChassis: React.FC = () => {
   // 다이어리 개폐 상태: 'closed'(Frame 0 닫힘) | 'opened'(표지 열림 완료 후 바닥 고정)
   const [isOpen, setIsOpen] = useState(false);
 
+  // 표지 3D 플립 애니메이션 진행 플래그 (450ms 동안 CoverView z-30 유지 후 바닥 z-10 안착)
+  const [isCoverFlipping, setIsCoverFlipping] = useState(false);
+
   // Tier 1: 우측 돌출 인덱스 탭 상태 ('writing' | 'review' | 'archive')
   const [activeTab, setActiveTab] = useState<SectionTab>('writing');
 
@@ -23,13 +26,21 @@ export const BinderChassis: React.FC = () => {
   // 앞표지 오픈: 단 1회 좌측 바닥(Inside Cover)으로 안착 후 영구 고정
   const handleOpenCover = () => {
     setIsOpen(true);
+    setIsCoverFlipping(true);
+    setTimeout(() => {
+      setIsCoverFlipping(false);
+    }, 450);
   };
 
   // 앞표지 닫기: 닫힌 상태로 복귀
   const handleCloseCover = () => {
+    setIsCoverFlipping(true);
     setIsOpen(false);
     setWritingSpread(0);
     setActiveTab('writing');
+    setTimeout(() => {
+      setIsCoverFlipping(false);
+    }, 450);
   };
 
   // 인덱스 탭 전환 (Page Flip Cascade 모션)
@@ -73,7 +84,7 @@ export const BinderChassis: React.FC = () => {
       {/* [레이어 2: 펼침 상태 양면 바인더 섀시 (960×640px)] 속지 캔버스 */}
       {/* ========================================================================= */}
       <div
-        className={`absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis overflow-visible z-10 transition-opacity duration-300 ${
+        className={`absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis overflow-visible z-20 transition-opacity duration-300 ${
           !isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
         style={{
@@ -111,53 +122,167 @@ export const BinderChassis: React.FC = () => {
           )}
 
           {activeTab === 'review' && (
-            /* [돌아보기 섹션] 4대 지표 캔버스 */
-            <div
-              className="w-full h-full p-8 flex flex-col justify-between"
-              style={{ backgroundColor: 'var(--color-paper)' }}
-            >
-              <div className="flex items-center justify-between pb-3 border-b border-stone-200">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-teal-700" />
-                  <span className="font-mono text-xs font-semibold text-stone-700">REVIEW SECTION</span>
+            /* [돌아보기 섹션] 좌 480px 지표 + 우 480px 대조표 2면 분할 */
+            <div className="w-full h-full flex">
+              {/* 좌측 480px: 4대 핵심 지표 그리드 */}
+              <div
+                className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4]"
+                style={{ backgroundColor: 'var(--color-paper)' }}
+              >
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-teal-700" />
+                      <span className="font-mono text-xs font-semibold text-stone-700">REVIEW SECTION</span>
+                    </div>
+                    <span className="font-mono text-[11px] text-stone-400">PAGE 07</span>
+                  </div>
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <div className="font-serif text-2xl text-stone-800">기록과 실행의 궤적</div>
+                      <p className="font-sans text-xs text-stone-500 mt-1 leading-relaxed">
+                        실행된 기록과 시간 차이를 분석한 4대 핵심 지표입니다.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                      <div className="p-3 bg-stone-100/70 rounded border border-stone-200">
+                        <div className="text-[10px] text-stone-500 font-sans">총 계획 수</div>
+                        <div className="text-2xl font-bold font-mono text-stone-800 mt-1">12<span className="text-xs font-normal">건</span></div>
+                      </div>
+                      <div className="p-3 bg-stone-100/70 rounded border border-stone-200">
+                        <div className="text-[10px] text-stone-500 font-sans">완료된 할 일</div>
+                        <div className="text-2xl font-bold font-mono text-emerald-700 mt-1">28<span className="text-xs font-normal">건</span></div>
+                      </div>
+                      <div className="p-3 bg-stone-100/70 rounded border border-stone-200">
+                        <div className="text-[10px] text-stone-500 font-sans">누적 실행 시간</div>
+                        <div className="text-2xl font-bold font-mono text-stone-800 mt-1">45<span className="text-xs font-normal">h</span></div>
+                      </div>
+                      <div className="p-3 bg-stone-100/70 rounded border border-stone-200">
+                        <div className="text-[10px] text-stone-500 font-sans">평균 시간 오차</div>
+                        <div className="text-2xl font-bold font-mono text-blue-700 mt-1">±15<span className="text-xs font-normal">분</span></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <span className="font-mono text-[11px] text-stone-400">PAGE 07-08</span>
+                <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
+                  <span>ALEPH-06 REVIEW</span>
+                  <span>PAGE 07</span>
+                </div>
               </div>
-              <div className="my-auto text-center space-y-3">
-                <div className="font-handwriting text-3xl text-stone-800">기록과 실행의 궤적</div>
-                <p className="font-sans text-xs text-stone-500 max-w-md mx-auto leading-relaxed">
-                  작성된 계획과 실행 완료 일지를 바탕으로 통계 지표와 평균 시간 오차를 산출하는 돌아보기 섹션입니다.
-                </p>
-              </div>
-              <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
-                <span>ALEPH-06 REVIEW</span>
-                <span>PAGE 07</span>
+
+              {/* 우측 480px: 시간 오차 상세 대조표 */}
+              <div
+                className="w-[480px] h-full p-8 flex flex-col justify-between"
+                style={{ backgroundColor: 'var(--color-paper)' }}
+              >
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+                    <span className="font-mono text-xs font-semibold text-stone-700">TIME VARIANCE</span>
+                    <span className="font-mono text-[11px] text-stone-400">PAGE 08</span>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    <div className="font-sans text-xs font-bold text-stone-800 pb-2 border-b border-stone-200">
+                      시간 오차 상세 대조표
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      <div className="p-2.5 rounded bg-white border border-stone-200 flex items-center justify-between shadow-2xs">
+                        <span className="text-stone-700">네트워크 소켓 버퍼링 정리</span>
+                        <span className="font-mono text-emerald-600 font-semibold">+10분 (정확)</span>
+                      </div>
+                      <div className="p-2.5 rounded bg-white border border-stone-200 flex items-center justify-between shadow-2xs">
+                        <span className="text-stone-700">바인더 2-Tier 캔버스 구현</span>
+                        <span className="font-mono text-amber-600 font-semibold">+25분 (초과)</span>
+                      </div>
+                      <div className="p-2.5 rounded bg-white border border-stone-200 flex items-center justify-between shadow-2xs">
+                        <span className="text-stone-700">아날로그 취소선 교정 검증</span>
+                        <span className="font-mono text-blue-600 font-semibold">-5분 (조기 완료)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
+                  <span>ALEPH-06 REVIEW</span>
+                  <span>PAGE 08</span>
+                </div>
               </div>
             </div>
           )}
 
           {activeTab === 'archive' && (
-            /* [보관함 섹션] 삭제된 카드 보관함 */
-            <div
-              className="w-full h-full p-8 flex flex-col justify-between"
-              style={{ backgroundColor: 'var(--color-paper)' }}
-            >
-              <div className="flex items-center justify-between pb-3 border-b border-stone-200">
-                <div className="flex items-center gap-2">
-                  <Trash2 className="w-4 h-4 text-purple-700" />
-                  <span className="font-mono text-xs font-semibold text-stone-700">ARCHIVE SECTION</span>
+            /* [보관함 섹션] 좌 480px 삭제계획 + 우 480px 삭제할일 2면 분할 */
+            <div className="w-full h-full flex">
+              {/* 좌측 480px: 삭제된 계획 보관함 */}
+              <div
+                className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4]"
+                style={{ backgroundColor: 'var(--color-paper)' }}
+              >
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+                    <div className="flex items-center gap-2">
+                      <Trash2 className="w-4 h-4 text-purple-700" />
+                      <span className="font-mono text-xs font-semibold text-stone-700">ARCHIVE SECTION</span>
+                    </div>
+                    <span className="font-mono text-[11px] text-stone-400">PAGE 09</span>
+                  </div>
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <div className="font-serif text-2xl text-stone-800">지워진 생각의 보관함</div>
+                      <p className="font-sans text-xs text-stone-500 mt-1 leading-relaxed">
+                        삭제된 계획 카드가 구겨진 음영과 마스킹 테이프로 안전하게 보관되는 휴지통입니다.
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-stone-100/80 border border-dashed border-stone-300 space-y-2 opacity-90">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="line-through text-stone-500 font-serif">2026 상반기 취미 플랜</span>
+                        <span className="text-[10px] font-mono text-stone-400">삭제됨</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-[11px] text-blue-700 hover:text-blue-900 font-medium cursor-pointer"
+                      >
+                        ↶ 계획 복구
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <span className="font-mono text-[11px] text-stone-400">PAGE 09-10</span>
+                <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
+                  <span>ALEPH-06 ARCHIVE</span>
+                  <span>PAGE 09</span>
+                </div>
               </div>
-              <div className="my-auto text-center space-y-3">
-                <div className="font-handwriting text-3xl text-stone-800">지워진 생각의 보관함</div>
-                <p className="font-sans text-xs text-stone-500 max-w-md mx-auto leading-relaxed">
-                  삭제된 계획과 할 일 카드가 구겨진 음영과 마스킹 테이프로 안전하게 보관되는 휴지통 섹션입니다.
-                </p>
-              </div>
-              <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
-                <span>ALEPH-06 ARCHIVE</span>
-                <span>PAGE 09</span>
+
+              {/* 우측 480px: 삭제된 할 일 목록 */}
+              <div
+                className="w-[480px] h-full p-8 flex flex-col justify-between"
+                style={{ backgroundColor: 'var(--color-paper)' }}
+              >
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+                    <span className="font-mono text-xs font-semibold text-stone-700">DELETED TASKS</span>
+                    <span className="font-mono text-[11px] text-stone-400">PAGE 10</span>
+                  </div>
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <div className="font-serif text-2xl text-stone-800">삭제된 할 일 목록</div>
+                      <p className="font-sans text-xs text-stone-500 mt-1 leading-relaxed">
+                        보관된 카드는 7일 동안 보관 후 영구 삭제 처리됩니다.
+                      </p>
+                    </div>
+                    <div className="p-3 rounded bg-white border border-stone-200 flex items-center justify-between shadow-2xs opacity-80">
+                      <span className="text-xs line-through text-stone-500">사용하지 않는 임시 테스트 메모</span>
+                      <button
+                        type="button"
+                        className="text-xs text-stone-400 hover:text-red-600 transition-colors cursor-pointer"
+                      >
+                        영구 삭제
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
+                  <span>ALEPH-06 ARCHIVE</span>
+                  <span>PAGE 10</span>
+                </div>
               </div>
             </div>
           )}
@@ -188,6 +313,7 @@ export const BinderChassis: React.FC = () => {
         onOpen={handleOpenCover}
         onClose={handleCloseCover}
         disabled={isOpen}
+        zIndex={!isOpen || isCoverFlipping ? 30 : 10}
       />
     </div>
   );

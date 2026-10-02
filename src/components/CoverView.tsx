@@ -8,6 +8,7 @@ interface CoverViewProps {
   onOpen: () => void;
   onClose?: () => void;
   disabled?: boolean;
+  zIndex?: number;
 }
 
 export const CoverView: React.FC<CoverViewProps> = ({
@@ -15,6 +16,7 @@ export const CoverView: React.FC<CoverViewProps> = ({
   onOpen,
   onClose,
   disabled = false,
+  zIndex = 30,
 }) => {
   const [ownerName, setOwnerName] = useState<string>('');
 
@@ -41,10 +43,11 @@ export const CoverView: React.FC<CoverViewProps> = ({
 
   return (
     <div
-      className={`absolute top-0 right-0 w-[480px] h-[640px] z-30 select-none ${
+      className={`absolute top-0 right-0 w-[480px] h-[640px] select-none ${
         disabled ? 'pointer-events-none' : ''
       }`}
       style={{
+        zIndex,
         transformOrigin: 'left center',
         transformStyle: 'preserve-3d',
         transition: 'transform 450ms cubic-bezier(0.2, 0, 0.2, 1)',
