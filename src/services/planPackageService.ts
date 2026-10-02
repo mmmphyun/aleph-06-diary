@@ -1,4 +1,4 @@
-import type { PlanPackage, LogItem } from '../types/binder';
+import type { PlanPackage, LogItem, TextRevision } from '../types/binder';
 
 const STORAGE_KEY = 'aleph06_plan_packages';
 
@@ -129,6 +129,69 @@ export const planPackageService = {
     const existing = this.loadPackages();
     const updated = existing.map((p) => (p.id === pkg.id ? pkg : p));
     this.savePackages(updated);
+  },
+
+  updatePlanText(pkgId: string, title: string, content: string): PlanPackage {
+    const existing = this.loadPackages();
+    const target = existing.find((p) => p.id === pkgId);
+    if (!target) return existing[0];
+    const newPkg: PlanPackage = { ...target, title, content };
+    const updated = existing.map((p) => (p.id === pkgId ? newPkg : p));
+    this.savePackages(updated);
+    return newPkg;
+  },
+
+  addRevision(pkgId: string, revision: TextRevision): PlanPackage {
+    const existing = this.loadPackages();
+    const target = existing.find((p) => p.id === pkgId);
+    if (!target) return existing[0];
+    const newPkg: PlanPackage = { ...target, revisions: [...target.revisions, revision] };
+    const updated = existing.map((p) => (p.id === pkgId ? newPkg : p));
+    this.savePackages(updated);
+    return newPkg;
+  },
+
+  addTask(pkgId: string, title: string): PlanPackage {
+    const existing = this.loadPackages();
+    const target = existing.find((p) => p.id === pkgId);
+    if (!target) return existing[0];
+    const newTask = {
+      id: `t-${Date.now()}`,
+      title: title.trim(),
+      done: false,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    const newPkg: PlanPackage = { ...target, tasks: [...target.tasks, newTask] };
+    const updated = existing.map((p) => (p.id === pkgId ? newPkg : p));
+    this.savePackages(updated);
+    return newPkg;
+  },
+
+  deleteTask(pkgId: string, taskId: string): PlanPackage {
+    const existing = this.loadPackages();
+    const target = existing.find((p) => p.id === pkgId);
+    if (!target) return existing[0];
+    const newPkg: PlanPackage = {
+      ...target,
+      tasks: target.tasks.filter((t) => t.id !== taskId),
+      logs: target.logs.filter((l) => l.taskId !== taskId),
+    };
+    const updated = existing.map((p) => (p.id === pkgId ? newPkg : p));
+    this.savePackages(updated);
+    return newPkg;
+  },
+
+  updateLogComment(pkgId: string, logId: string, comment: string): PlanPackage {
+    const existing = this.loadPackages();
+    const target = existing.find((p) => p.id === pkgId);
+    if (!target) return existing[0];
+    const newPkg: PlanPackage = {
+      ...target,
+      logs: target.logs.map((l) => (l.id === logId ? { ...l, comment } : l)),
+    };
+    const updated = existing.map((p) => (p.id === pkgId ? newPkg : p));
+    this.savePackages(updated);
+    return newPkg;
   },
 
   toggleTaskDone(pkgId: string, taskId: string, comment?: string): { packages: PlanPackage[]; updatedPkg: PlanPackage } {

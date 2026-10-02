@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TaskItem, LogItem, TextRevision } from '../types/binder';
+import { PlanPackage, TaskItem, LogItem, TextRevision } from '../types/binder';
 import { PlanSpreadView } from './PlanSpreadView';
 import {
   Plus,
@@ -13,112 +13,46 @@ import {
 } from 'lucide-react';
 
 interface WritingCanvasProps {
+  currentPackage: PlanPackage;
   currentSpread: number; // 0: 계획, 1: 할 일, 2: 실행 일지
   onNavigateSpread: (spreadIndex: number) => void;
   onNavigateToTitlePage?: () => void;
+  onUpdatePlan: (title: string, content: string) => void;
+  onAddRevision: (rev: TextRevision) => void;
+  onAddTask: (title: string) => void;
+  onDeleteTask: (taskId: string) => void;
+  onToggleTask: (taskId: string, comment?: string) => void;
+  onUpdateLogComment: (logId: string, comment: string) => void;
 }
 
 export const WritingCanvas: React.FC<WritingCanvasProps> = ({
+  currentPackage,
   currentSpread,
   onNavigateSpread,
   onNavigateToTitlePage,
+  onUpdatePlan,
+  onAddRevision,
+  onAddTask,
+  onDeleteTask,
+  onToggleTask,
+  onUpdateLogComment,
 }) => {
-  // [섹션 1: 계획 데이터 상태 - 자동 줄바꿈 본문 및 드래그 범위 1회 교정]
-  const [planTitle, setPlanTitle] = useState('2026 하반기 핵심 목표 수립');
-  const [planContent, setPlanContent] = useState(
-    `매일 아침 30분 CS 시스템 아키텍처 및 네트워크 표준 읽기.\n주 3회 5km 조깅 및 코어 운동 진행하기.\nDevSecOps 자동화 파이프라인 무중단 배포 설계서 완성.\n매주 일요일 저녁 1시간 다이어리 실행 일지 및 시간 오차 회고.\n운영체제 커널 가상 메모리와 페이지 교체 알고리즘 정리.\n클라우드 인프라 보안 감사 체크리스트 점검 및 자동화 구축.`
-  );
-  const [revisions, setRevisions] = useState<TextRevision[]>([
-    {
-      id: 'rev-init-1',
-      startIndex: 37,
-      endIndex: 58,
-      originalText: '주 3회 5km 조깅 및 코어 운동',
-      correctedText: '주 4회 7km 러닝 및 인터벌 트레이닝으로 상향',
-      createdAt: '2026-10-02',
-    },
-  ]);
-
-  // [섹션 2: 할 일 데이터 상태]
-  const [tasks, setTasks] = useState<TaskItem[]>([
-    {
-      id: 't1',
-      title: '네트워크 소켓 버퍼링 및 TCP 상태 머신 정리',
-      done: true,
-      createdAt: '2026-10-02',
-    },
-    {
-      id: 't2',
-      title: '바인더 다이어리 2-Tier 캔버스 컴포넌트 구현',
-      done: false,
-      createdAt: '2026-10-02',
-    },
-    {
-      id: 't3',
-      title: '아날로그 인라인 취소선 교정 렌더링 무결성 검증',
-      done: false,
-      createdAt: '2026-10-02',
-    },
-  ]);
   const [newTaskInput, setNewTaskInput] = useState('');
 
-  // [섹션 3: 실행 일지 데이터 상태]
-  const [logs, setLogs] = useState<LogItem[]>([
-    {
-      id: 'log1',
-      taskId: 't1',
-      taskTitle: '네트워크 소켓 버퍼링 및 TCP 상태 머신 정리',
-      completedAt: '26.10.02 09:30',
-      comment: 'TIME_WAIT 상태와 SO_REUSEADDR 소켓 옵션의 연관 관계를 명확히 정립함.',
-    },
-  ]);
+  const { title: planTitle, content: planContent, revisions, tasks, logs } = currentPackage;
+  const startPage = currentPackage.startPage || 1;
 
+  const pageSpread1Left = `PAGE ${String(startPage + 2).padStart(2, '0')}`;
+  const pageSpread1Right = `PAGE ${String(startPage + 3).padStart(2, '0')}`;
+  const pageSpread2Left = `PAGE ${String(startPage + 4).padStart(2, '0')}`;
+  const pageSpread2Right = `PAGE ${String(startPage + 5).padStart(2, '0')}`;
 
-
-  // 할 일 추가
+  // 할 일 추가 제출
   const handleAddTask = () => {
     const trimmed = newTaskInput.trim();
     if (!trimmed) return;
-    setTasks((prev) => [
-      ...prev,
-      {
-        id: `t-${Date.now()}`,
-        title: trimmed,
-        done: false,
-        createdAt: '2026-10-02',
-      },
-    ]);
+    onAddTask(trimmed);
     setNewTaskInput('');
-  };
-
-  // 할 일 토글 및 실행 일지 연쇄 누적
-  const handleToggleTask = (task: TaskItem) => {
-    const nextDone = !task.done;
-    setTasks((prev) =>
-      prev.map((t) => (t.id === task.id ? { ...t, done: nextDone } : t))
-    );
-
-    if (nextDone) {
-      const now = new Date();
-      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(
-        now.getMinutes()
-      ).padStart(2, '0')}`;
-      const newLog: LogItem = {
-        id: `log-${Date.now()}`,
-        taskId: task.id,
-        taskTitle: task.title,
-        completedAt: `26.10.02 ${timeStr}`,
-        comment: '실행을 완수하고 성찰을 남깁니다.',
-      };
-      setLogs((prev) => [...prev, newLog]);
-    }
-  };
-
-  // 로그 코멘트 인라인 수정
-  const handleUpdateLogComment = (logId: string, comment: string) => {
-    setLogs((prev) =>
-      prev.map((lg) => (lg.id === logId ? { ...lg, comment } : lg))
-    );
   };
 
   // 한 면당 7줄 기준 분할
@@ -137,13 +71,14 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
       {currentSpread === 0 && (
         <PlanSpreadView
           planTitle={planTitle}
-          onUpdateTitle={setPlanTitle}
+          onUpdateTitle={(newTitle) => onUpdatePlan(newTitle, planContent)}
           planContent={planContent}
-          onUpdateContent={setPlanContent}
+          onUpdateContent={(newContent) => onUpdatePlan(planTitle, newContent)}
           revisions={revisions}
-          onAddRevision={(newRev) => setRevisions((prev) => [...prev, newRev])}
+          onAddRevision={onAddRevision}
           onNavigateNextSpread={() => onNavigateSpread(1)}
           onNavigateToTitlePage={onNavigateToTitlePage}
+          startPage={startPage}
         />
       )}
 
@@ -165,7 +100,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                     섹션 2: 할 일 (Tasks)
                   </span>
                 </div>
-                <span className="font-mono text-[11px] text-stone-400">PAGE 03</span>
+                <span className="font-mono text-[11px] text-stone-400">{pageSpread1Left}</span>
               </div>
 
               <div className="mt-3 flex items-center justify-between pb-2 border-b border-stone-300">
@@ -175,11 +110,11 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
 
               {/* 할 일 목록 */}
               <div className="mt-3 h-[380px] overflow-hidden space-y-2">
-                {tasksLeft.map((task) => (
+                {tasksLeft.map((task: TaskItem) => (
                   <div
                     key={task.id}
                     className="h-10 flex items-center justify-between px-2 rounded hover:bg-stone-50 transition-colors group cursor-pointer border-b border-stone-200/60"
-                    onClick={() => handleToggleTask(task)}
+                    onClick={() => onToggleTask(task.id)}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       {task.done ? (
@@ -199,7 +134,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setTasks((prev) => prev.filter((t) => t.id !== task.id));
+                        onDeleteTask(task.id);
                       }}
                       className="opacity-0 group-hover:opacity-100 p-1 text-stone-300 hover:text-red-500 transition-opacity cursor-pointer"
                     >
@@ -242,7 +177,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                 <ArrowLeft className="w-3 h-3" />
                 <span>이전 장 (계획)</span>
               </button>
-              <span className="font-mono text-[10px] text-stone-400">PAGE 03</span>
+              <span className="font-mono text-[10px] text-stone-400">{pageSpread1Left}</span>
             </div>
           </div>
 
@@ -254,7 +189,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
             <div>
               <div className="flex items-center justify-between pb-3 border-b border-stone-200">
                 <span className="font-mono text-xs font-semibold text-stone-700">TASKS EXTENSION</span>
-                <span className="font-mono text-[11px] text-stone-400">PAGE 04</span>
+                <span className="font-mono text-[11px] text-stone-400">{pageSpread1Right}</span>
               </div>
 
               <div className="mt-4 h-[400px] overflow-hidden space-y-2">
@@ -271,11 +206,11 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                     </p>
                   </div>
                 ) : (
-                  tasksRight.map((task) => (
+                  tasksRight.map((task: TaskItem) => (
                     <div
                       key={task.id}
                       className="h-10 flex items-center justify-between px-2 rounded hover:bg-stone-50 transition-colors group cursor-pointer border-b border-stone-200/60"
-                      onClick={() => handleToggleTask(task)}
+                      onClick={() => onToggleTask(task.id)}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         {task.done ? (
@@ -291,6 +226,16 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                           {task.title}
                         </span>
                       </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteTask(task.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-stone-300 hover:text-red-500 transition-opacity cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ))
                 )}
@@ -299,7 +244,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
 
             {/* 우측 하단: 실행 일지로 새 장 넘김 버튼 */}
             <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
-              <span className="font-mono text-[10px] text-stone-400">PAGE 04</span>
+              <span className="font-mono text-[10px] text-stone-400">{pageSpread1Right}</span>
               <button
                 type="button"
                 onClick={() => onNavigateSpread(2)}
@@ -332,7 +277,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                     섹션 3: 실행 일지 (Logs)
                   </span>
                 </div>
-                <span className="font-mono text-[11px] text-stone-400">PAGE 05</span>
+                <span className="font-mono text-[11px] text-stone-400">{pageSpread2Left}</span>
               </div>
 
               <div className="mt-3 flex items-center justify-between pb-2 border-b border-stone-300">
@@ -352,7 +297,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                     </p>
                   </div>
                 ) : (
-                  logsLeft.map((log) => (
+                  logsLeft.map((log: LogItem) => (
                     <div
                       key={log.id}
                       className="p-3 rounded bg-white/70 border border-stone-200 space-y-1.5 shadow-2xs"
@@ -372,7 +317,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                         <input
                           type="text"
                           value={log.comment}
-                          onChange={(e) => handleUpdateLogComment(log.id, e.target.value)}
+                          onChange={(e) => onUpdateLogComment(log.id, e.target.value)}
                           placeholder="한 줄 소회나 막혔던 이유를 적으세요"
                           className="w-full bg-transparent font-handwriting text-xs text-stone-600 outline-none placeholder:font-sans placeholder:text-[10px] placeholder:text-stone-400"
                         />
@@ -393,7 +338,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                 <ArrowLeft className="w-3 h-3" />
                 <span>이전 장 (할 일)</span>
               </button>
-              <span className="font-mono text-[10px] text-stone-400">PAGE 05</span>
+              <span className="font-mono text-[10px] text-stone-400">{pageSpread2Left}</span>
             </div>
           </div>
 
@@ -405,7 +350,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
             <div>
               <div className="flex items-center justify-between pb-3 border-b border-stone-200">
                 <span className="font-mono text-xs font-semibold text-stone-700">LOG ARCHIVE</span>
-                <span className="font-mono text-[11px] text-stone-400">PAGE 06</span>
+                <span className="font-mono text-[11px] text-stone-400">{pageSpread2Right}</span>
               </div>
 
               <div className="mt-4 h-[400px] overflow-hidden space-y-3">
@@ -418,7 +363,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                     </p>
                   </div>
                 ) : (
-                  logsRight.map((log) => (
+                  logsRight.map((log: LogItem) => (
                     <div
                       key={log.id}
                       className="p-3 rounded bg-white/70 border border-stone-200 space-y-1.5 shadow-2xs"
@@ -436,7 +381,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                         <input
                           type="text"
                           value={log.comment}
-                          onChange={(e) => handleUpdateLogComment(log.id, e.target.value)}
+                          onChange={(e) => onUpdateLogComment(log.id, e.target.value)}
                           placeholder="한 줄 소회 기록"
                           className="w-full bg-transparent font-handwriting text-xs text-stone-600 outline-none"
                         />
@@ -449,7 +394,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
 
             <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
               <span>ALEPH-06 LOGS</span>
-              <span>PAGE 06</span>
+              <span>{pageSpread2Right}</span>
             </div>
           </div>
         </>

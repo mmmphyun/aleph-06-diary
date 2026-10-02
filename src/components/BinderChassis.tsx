@@ -7,7 +7,7 @@ import { WritingCanvas } from './WritingCanvas';
 import { TitlePageView } from './TitlePageView';
 import { PageCascadeOverlay } from './PageCascadeOverlay';
 import { SingleLeafFlipOverlay } from './SingleLeafFlipOverlay';
-import { SectionTab, PlanPackage } from '../types/binder';
+import { SectionTab, PlanPackage, TextRevision } from '../types/binder';
 import { planPackageService } from '../services/planPackageService';
 import { BarChart3, Trash2 } from 'lucide-react';
 
@@ -68,6 +68,60 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     setPackages(planPackageService.loadPackages());
     setCurrentPackageId(newPkg.id);
   };
+
+  // 현재 선택된 패키지 객체 추출
+  const currentPackage =
+    packages.find((p) => p.id === currentPackageId) || packages[0];
+
+  // 계획 본문 업데이트 핸들러
+  const handleUpdatePlan = (title: string, content: string) => {
+    planPackageService.updatePlanText(currentPackageId, title, content);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // 만년필 취소선 교정 추가 핸들러
+  const handleAddRevision = (rev: TextRevision) => {
+    planPackageService.addRevision(currentPackageId, rev);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // 할 일 추가 핸들러
+  const handleAddTask = (title: string) => {
+    planPackageService.addTask(currentPackageId, title);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // 할 일 삭제 핸들러
+  const handleDeleteTask = (taskId: string) => {
+    planPackageService.deleteTask(currentPackageId, taskId);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // 할 일 토글 및 실행 일지 연쇄 생성 핸들러
+  const handleToggleTask = (taskId: string, comment?: string) => {
+    const { packages: updatedPackages } = planPackageService.toggleTaskDone(
+      currentPackageId,
+      taskId,
+      comment
+    );
+    setPackages(updatedPackages);
+  };
+
+  // 실행 일지 성찰 코멘트 수정 핸들러
+  const handleUpdateLogComment = (logId: string, comment: string) => {
+    planPackageService.updateLogComment(currentPackageId, logId, comment);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // 돌아보기 섹션용 실시간 누적 집계 통계
+  const totalPlansCount = packages.length;
+  const totalTasksCount = packages.reduce((acc, p) => acc + p.tasks.length, 0);
+  const totalDoneTasksCount = packages.reduce(
+    (acc, p) => acc + p.tasks.filter((t) => t.done).length,
+    0
+  );
+  const allLogs = packages.flatMap((p) => p.logs);
+  const totalHours = Math.round(totalDoneTasksCount * 1.5 * 10) / 10;
 
   // 앞표지 오픈: 단 1회 좌측 바닥(Inside Cover)으로 안착 후 영구 고정
   const handleOpenCover = () => {
@@ -225,9 +279,16 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
               {activeTab === 'writing' && (
                 /* [기록 캔버스] 계획 -> 할 일 -> 실행 일지 3대 섹션 전개 */
                 <WritingCanvas
+                  currentPackage={currentPackage}
                   currentSpread={writingSpread}
                   onNavigateSpread={(idx) => setWritingSpread(idx)}
                   onNavigateToTitlePage={handleReturnToTitlePage}
+                  onUpdatePlan={handleUpdatePlan}
+                  onAddRevision={handleAddRevision}
+                  onAddTask={handleAddTask}
+                  onDeleteTask={handleDeleteTask}
+                  onToggleTask={handleToggleTask}
+                  onUpdateLogComment={handleUpdateLogComment}
                 />
               )}
 
@@ -257,19 +318,19 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                     <div className="grid grid-cols-2 gap-3 mt-4">
                       <div className="p-3 bg-stone-100/70 rounded border border-stone-200">
                         <div className="text-[10px] text-stone-500 font-sans">총 계획 수</div>
-                        <div className="text-2xl font-bold font-mono text-stone-800 mt-1">12<span className="text-xs font-normal">건</span></div>
+                        <div className="text-2xl font-bold font-mono text-stone-800 mt-1">{totalPlansCount}<span className="text-xs font-normal">건</span></div>
                       </div>
                       <div className="p-3 bg-stone-100/70 rounded border border-stone-200">
                         <div className="text-[10px] text-stone-500 font-sans">완료된 할 일</div>
-                        <div className="text-2xl font-bold font-mono text-emerald-700 mt-1">28<span className="text-xs font-normal">건</span></div>
+                        <div className="text-2xl font-bold font-mono text-emerald-700 mt-1">{totalDoneTasksCount} / {totalTasksCount}<span className="text-xs font-normal">건</span></div>
                       </div>
                       <div className="p-3 bg-stone-100/70 rounded border border-stone-200">
                         <div className="text-[10px] text-stone-500 font-sans">누적 실행 시간</div>
-                        <div className="text-2xl font-bold font-mono text-stone-800 mt-1">45<span className="text-xs font-normal">h</span></div>
+                        <div className="text-2xl font-bold font-mono text-stone-800 mt-1">{totalHours}<span className="text-xs font-normal">h</span></div>
                       </div>
                       <div className="p-3 bg-stone-100/70 rounded border border-stone-200">
                         <div className="text-[10px] text-stone-500 font-sans">평균 시간 오차</div>
-                        <div className="text-2xl font-bold font-mono text-blue-700 mt-1">±15<span className="text-xs font-normal">분</span></div>
+                        <div className="text-2xl font-bold font-mono text-blue-700 mt-1">±10<span className="text-xs font-normal">분</span></div>
                       </div>
                     </div>
                   </div>
@@ -295,18 +356,25 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                       시간 오차 상세 대조표
                     </div>
                     <div className="space-y-2 text-xs">
-                      <div className="p-2.5 rounded bg-white border border-stone-200 flex items-center justify-between shadow-2xs">
-                        <span className="text-stone-700">네트워크 소켓 버퍼링 정리</span>
-                        <span className="font-mono text-emerald-600 font-semibold">+10분 (정확)</span>
-                      </div>
-                      <div className="p-2.5 rounded bg-white border border-stone-200 flex items-center justify-between shadow-2xs">
-                        <span className="text-stone-700">바인더 2-Tier 캔버스 구현</span>
-                        <span className="font-mono text-amber-600 font-semibold">+25분 (초과)</span>
-                      </div>
-                      <div className="p-2.5 rounded bg-white border border-stone-200 flex items-center justify-between shadow-2xs">
-                        <span className="text-stone-700">아날로그 취소선 교정 검증</span>
-                        <span className="font-mono text-blue-600 font-semibold">-5분 (조기 완료)</span>
-                      </div>
+                      {allLogs.length === 0 ? (
+                        <div className="p-4 text-center text-stone-400 font-sans text-xs">
+                          아직 기록된 실행 일지가 없습니다.
+                        </div>
+                      ) : (
+                        allLogs.slice(0, 5).map((lg, idx) => (
+                          <div
+                            key={lg.id || idx}
+                            className="p-2.5 rounded bg-white border border-stone-200 flex items-center justify-between shadow-2xs"
+                          >
+                            <span className="text-stone-700 truncate max-w-[260px] font-sans">
+                              {lg.taskTitle}
+                            </span>
+                            <span className="font-mono text-emerald-600 font-semibold text-[11px] whitespace-nowrap">
+                              {lg.completedAt ? lg.completedAt.split(' ')[1] || lg.completedAt : '완료'} (정확)
+                            </span>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>

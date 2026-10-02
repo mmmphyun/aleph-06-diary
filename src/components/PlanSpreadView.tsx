@@ -11,6 +11,7 @@ interface PlanSpreadViewProps {
   onAddRevision: (rev: TextRevision) => void;
   onNavigateNextSpread: () => void;
   onNavigateToTitlePage?: () => void;
+  startPage?: number;
 }
 
 export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
@@ -22,6 +23,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
   onAddRevision,
   onNavigateNextSpread,
   onNavigateToTitlePage,
+  startPage = 1,
 }) => {
   // 본문 편집 모드 (양면 무스크롤 2-Pane 에디터) vs 판면 모드 (54px 격줄 렌더러 & 만년필 교정)
   const [isEditing, setIsEditing] = useState(false);
@@ -46,8 +48,9 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
   const rightTextareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 본문을 줄 단위로 분할 (좌측 7줄, 우측 7줄)
   const LINES_PER_PAGE = 7;
+  const leftPageStr = `PAGE ${String(startPage).padStart(2, '0')}`;
+  const rightPageStr = `PAGE ${String(startPage + 1).padStart(2, '0')}`;
   const contentLines = planContent.split('\n').filter(Boolean);
   const leftLines = contentLines.slice(0, LINES_PER_PAGE);
   const rightLines = contentLines.slice(LINES_PER_PAGE, LINES_PER_PAGE * 2);
@@ -301,7 +304,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
                 {isEditing ? <Check className="w-3 h-3 text-emerald-600" /> : <Edit3 className="w-3 h-3" />}
                 <span>{isEditing ? '작성 완료' : '본문 편집'}</span>
               </button>
-              <span className="font-mono text-[11px] text-stone-400">PAGE 01</span>
+              <span className="font-mono text-[11px] text-stone-400">{leftPageStr}</span>
             </div>
           </div>
 
@@ -354,7 +357,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
           ) : (
             <span>격줄 교정 캔버스</span>
           )}
-          <span>PAGE 01</span>
+          <span>{leftPageStr}</span>
         </div>
       </div>
 
@@ -369,7 +372,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
         <div>
           <div className="flex items-center justify-between pb-3 border-b border-stone-200">
             <span className="font-mono text-xs font-semibold text-stone-700">PLAN CONTINUED</span>
-            <span className="font-mono text-[11px] text-stone-400">PAGE 02</span>
+            <span className="font-mono text-[11px] text-stone-400">{rightPageStr}</span>
           </div>
 
           {/* 우측 줄노트 영역: 무스크롤 7행 에디터 vs 판면 모드 */}
@@ -410,7 +413,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
 
         {/* 우측 하단: 다음 섹션(할 일)으로 새 장 넘김 버튼 */}
         <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
-          <span className="font-mono text-[10px] text-stone-400">PAGE 02</span>
+          <span className="font-mono text-[10px] text-stone-400">{rightPageStr}</span>
           <button
             type="button"
             onClick={onNavigateNextSpread}
