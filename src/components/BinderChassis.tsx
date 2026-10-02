@@ -5,8 +5,15 @@ import { DeskMemoSheet } from './DeskMemoSheet';
 import { IndexTabs } from './IndexTabs';
 import { WritingCanvas } from './WritingCanvas';
 import { TitlePageView } from './TitlePageView';
+import { PageCascadeOverlay } from './PageCascadeOverlay';
 import { SectionTab } from '../types/binder';
 import { BarChart3, Trash2 } from 'lucide-react';
+
+const TAB_ORDER: Record<SectionTab, number> = {
+  writing: 0,
+  review: 1,
+  archive: 2,
+};
 
 interface BinderChassisProps {
   onCoverOpenChange?: (isOpen: boolean) => void;
@@ -32,8 +39,9 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   // Tier 2: 기록 섹션 내부 스프레드 인덱스 (0: 계획, 1: 할 일, 2: 실행 일지)
   const [writingSpread, setWritingSpread] = useState(0);
 
-  // Page Flip Cascade 모션 플래그 (탭 전환 시 촤라락 넘김)
+  // Page Flip Cascade 모션 플래그 및 방향 (탭 전환 시 촤라락 넘김)
   const [isCascading, setIsCascading] = useState(false);
+  const [cascadeDirection, setCascadeDirection] = useState<'forward' | 'backward'>('forward');
 
   // 앞표지 오픈: 단 1회 좌측 바닥(Inside Cover)으로 안착 후 영구 고정
   const handleOpenCover = () => {
@@ -78,14 +86,16 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     }
   }, [onRegisterCloseHandler]);
 
-  // 인덱스 탭 전환 (Page Flip Cascade 모션)
+  // 인덱스 탭 전환 (Page Flip Cascade 3D 다중 플립 모션)
   const handleSelectTab = (tab: SectionTab) => {
     if (tab === activeTab || isCascading) return;
+    const direction = TAB_ORDER[tab] > TAB_ORDER[activeTab] ? 'forward' : 'backward';
+    setCascadeDirection(direction);
     setIsCascading(true);
     setTimeout(() => {
       setActiveTab(tab);
       setIsCascading(false);
-    }, 250);
+    }, 360);
   };
 
   return (
@@ -138,13 +148,19 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
         {/* 바인더 내부 양면 페이퍼 컨테이너 */}
         <div
           className={`relative w-full h-full flex rounded-lg overflow-hidden transform-style-preserve-3d transition-transform duration-250 ${
-            isCascading ? 'scale-[0.98] rotate-y-[-4deg] opacity-70' : 'scale-100 rotate-y-0 opacity-100'
+            isCascading ? 'scale-[0.99] opacity-95' : 'scale-100 opacity-100'
           }`}
         >
           {/* 중앙 제본선 음영 */}
           <div className="absolute left-[472px] top-0 bottom-0 z-30 pointer-events-none">
             <SpineDivider />
           </div>
+
+          {/* 인덱스 탭 전환 시 촤라락 3D 다중 속지 플립 오버레이 */}
+          <PageCascadeOverlay
+            isCascading={isCascading}
+            direction={cascadeDirection}
+          />
 
           {/* ---------------- 단계별 속지 컨텐츠 ---------------- */}
           {!hasTurnedTitlePage ? (
