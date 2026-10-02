@@ -108,7 +108,7 @@
 |   | [ 표지 다시 닫기 ]        |   |   |                           |   |
 |   |                           |   |   |                           |   |
 |   |                           |   |   |                           |   |
-|   | "생각을 기록하고..."      |   |   |   [ 다음 장 넘기기 → ]    |   |
+|   | (REGISTERED OWNER)        |   |   |   [ 다음 장 넘기기 → ]    |   |
 |   +---------------------------+   |   +---------------------------+   |
 +-----------------------------------+-----------------------------------+
 ```
@@ -218,18 +218,15 @@
 * **타입 정의**:
   ```typescript
   type BinderPhase =
-    | 'closed'         // Frame 0
-    | 'cover-opening'  // 표지 회전 전이 (450ms)
-    | 'cover-opened'   // Frame 1: LEAF 01 정지 노출
-    | 'leaf-flipping'  // Frame 2: 속지 회전 전이 (450ms)
-    | 'opened'         // Frame 3: 본문 양면 상호작용
-    | 'closing-leaf'   // 역순 닫기: 속지 되덮기 (350ms)
-    | 'closing-cover'; // 역순 닫기: 표지 덮기 (450ms)
+    | 'closed'        // Frame 0: 닫힌 상태 (좌: 데스크 메모지, 우: 닫힌 앞표지)
+    | 'cover-opened'  // Frame 1: 표지만 열림 (좌: 인사이드 커버 소유자 서명, 우: LEAF 01 표제지 수동 대기)
+    | 'opened';       // Frame 3: 양면 본문 개방 (좌: PlanCard 인라인, 우: RevisionTimeline)
   ```
-* **수동 트리거 함수**:
-  * `handleOpenCover()`: `closed` ➔ `cover-opening` ➔ (450ms) ➔ `cover-opened` (자동으로 다음 장으로 안 넘어감!)
-  * `handleFlipLeaf()`: `cover-opened` ➔ `leaf-flipping` ➔ (450ms) ➔ `opened`
-  * `handleCloseCover()`: `opened` ➔ `closing-leaf` ➔ (350ms) ➔ `closing-cover` ➔ (450ms) ➔ `closed`
+* **수동 트리거 함수 (JS 타이머 배제, CSS transition 위임)**:
+  * `handleOpenCover()`: `setPhase('cover-opened')` (앞표지만 -180도 회전, LEAF 01 표제지에서 정지 대기)
+  * `handleFlipLeaf()`: `setPhase('opened')` (우측 흰색 내지만 -180도 회전하여 좌측 안착 및 본문 개방)
+  * `handleCloseCover()`: `setPhase('closed')` (표지 및 내지 원위치 복귀)
+
 
 ### 4.2 인사이드 커버 소유자 서명란 (`CoverView`)
 * **스토리지 키**: `localStorage.getItem('diary_owner_name')` / `setItem`

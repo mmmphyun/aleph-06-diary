@@ -138,10 +138,6 @@ export const CoverView: React.FC<CoverViewProps> = ({
                 서명된 소유자 정보는 브라우저 로컬 저장소에 안전하게 보관됩니다.
               </p>
             </div>
-
-            <div className="pt-4 border-t border-stone-800 text-center font-handwriting text-stone-400 text-base leading-relaxed">
-              "생각을 기록하고, 행동을 살피며, 삶을 반추하다"
-            </div>
           </div>
 
           {/* 하단 시스템 정보 */}
