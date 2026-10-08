@@ -9,11 +9,13 @@ import { db } from '../lib/firebase';
 import type {
   PlanPackage,
   TaskItem,
+  TaskInputDto,
   LogItem,
   TextRevision,
   IPlanPackageRepository,
 } from '../types/binder';
 import { INITIAL_PLAN_PACKAGES } from './planPackageService';
+import { getTodayKST, getDefaultDueDateKST } from '../utils/dateUtils';
 
 const STORAGE_CACHE_KEY = 'aleph06_plan_packages';
 
@@ -97,6 +99,12 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
             planId: pkg.id,
             title: task.title,
             done: task.done,
+            startDate: task.startDate,
+            dueDate: task.dueDate,
+            priority: task.priority,
+            description: task.description || '',
+            tags: task.tags || [],
+            status: task.status,
             createdAt: task.createdAt,
           });
         }
@@ -157,12 +165,23 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
       .map((p) => {
         const planTasks: TaskItem[] = taskDocs
           .filter((t) => t.planId === p.id)
-          .map((t) => ({
-            id: t.id,
-            title: t.title,
-            done: !!t.done,
-            createdAt: t.createdAt,
-          }));
+          .map((t) => {
+            const today = getTodayKST();
+            const defaultDue = getDefaultDueDateKST(today);
+            const isDone = !!t.done || t.status === 'done';
+            return {
+              id: t.id,
+              title: t.title || '',
+              done: isDone,
+              startDate: t.startDate || today,
+              dueDate: t.dueDate || defaultDue,
+              priority: (t.priority as any) || 'medium',
+              description: t.description || '',
+              tags: Array.isArray(t.tags) ? t.tags : [],
+              status: (t.status as any) || (isDone ? 'done' : 'todo'),
+              createdAt: t.createdAt || today,
+            };
+          });
 
         const planLogs: LogItem[] = logDocs
           .filter((l) => l.planId === p.id)
@@ -218,6 +237,12 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
           planId: pkg.id,
           title: task.title,
           done: task.done,
+          startDate: task.startDate,
+          dueDate: task.dueDate,
+          priority: task.priority,
+          description: task.description || '',
+          tags: task.tags || [],
+          status: task.status,
           createdAt: task.createdAt,
         });
       }
@@ -340,16 +365,68 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
     return newPkg;
   }
 
-  addTask(pkgId: string, title: string): PlanPackage {
+  addTask(pkgId: string, input: string | TaskInputDto): PlanPackage {
     const target = this.cache.find((p) => p.id === pkgId);
     if (!target) return this.cache[0];
+
+    const today = getTodayKST();
+
+    const title = typeof input === 'string' ? input.trim() : input.title.trim();
+    const startDate = (typeof input === 'object' && input.startDate) || today;
+    const dueDate = (typeof input === 'object' && input.dueDate) || getDefaultDueDateKST(startDate);
+    const priority = (typeof input === 'object' && input.priority) || 'medium';
+    const description = (typeof input === 'object' && input.description) || '';
+    const tags = (typeof input === 'object' && input.tags) || [];
+    const status = (typeof input === 'object' && input.status) || 'todo';
+
     const newTask: TaskItem = {
       id: `t-${Date.now()}`,
-      title: title.trim(),
-      done: false,
-      createdAt: new Date().toISOString().split('T')[0],
+      title: title || '새로운 할 일',
+      done: status === 'done',
+      startDate,
+      dueDate,
+      priority,
+      description,
+      tags,
+      status,
+      createdAt: today,
     };
     const newPkg: PlanPackage = { ...target, tasks: [...target.tasks, newTask] };
+    this.cache = this.cache.map((p) => (p.id === pkgId ? newPkg : p));
+    this.saveToLocal();
+    this.syncPackageToFirestore(newPkg);
+    return newPkg;
+  }
+
+  updateTask(pkgId: string, taskId: string, updates: Partial<TaskInputDto>): PlanPackage {
+    const target = this.cache.find((p) => p.id === pkgId);
+    if (!target) return this.cache[0];
+
+    const updatedTasks = target.tasks.map((t) => {
+      if (t.id !== taskId) return t;
+      const nextTitle = updates.title !== undefined ? updates.title.trim() : t.title;
+      const nextStartDate = updates.startDate !== undefined ? updates.startDate : t.startDate;
+      const nextDueDate = updates.dueDate !== undefined ? updates.dueDate : t.dueDate;
+      const nextPriority = updates.priority !== undefined ? updates.priority : t.priority;
+      const nextDescription = updates.description !== undefined ? updates.description : t.description;
+      const nextTags = updates.tags !== undefined ? updates.tags : t.tags;
+      const nextStatus = updates.status !== undefined ? updates.status : t.status;
+      const nextDone = nextStatus === 'done' || (updates.status === undefined && t.done);
+
+      return {
+        ...t,
+        title: nextTitle,
+        startDate: nextStartDate,
+        dueDate: nextDueDate,
+        priority: nextPriority,
+        description: nextDescription,
+        tags: nextTags,
+        status: nextStatus,
+        done: nextDone,
+      };
+    });
+
+    const newPkg: PlanPackage = { ...target, tasks: updatedTasks };
     this.cache = this.cache.map((p) => (p.id === pkgId ? newPkg : p));
     this.saveToLocal();
     this.syncPackageToFirestore(newPkg);
@@ -413,7 +490,15 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
       updatedLogs = updatedLogs.filter((l) => l.taskId !== taskId);
     }
 
-    const updatedTasks = targetPkg.tasks.map((t) => (t.id === taskId ? { ...t, done: nextDone } : t));
+    const updatedTasks = targetPkg.tasks.map((t) =>
+      t.id === taskId
+        ? {
+            ...t,
+            done: nextDone,
+            status: nextDone ? ('done' as const) : ('in_progress' as const),
+          }
+        : t
+    );
     const newPkg: PlanPackage = {
       ...targetPkg,
       tasks: updatedTasks,

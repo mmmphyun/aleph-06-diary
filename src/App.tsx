@@ -48,7 +48,7 @@ export const App: React.FC = () => {
                 Plan-Do-See Diary
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-stone-200/80 text-stone-600 border border-stone-300">
-                M2: Plan & Revision
+                M3: Tasks & Filter/Sort
               </span>
             </div>
 

@@ -162,9 +162,16 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   };
 
   // 할 일 추가 핸들러
-  const handleAddTask = (title: string) => {
+  const handleAddTask = (input: string | import('../types/binder').TaskInputDto) => {
     const pkgId = ensureCommittedPackageId();
-    planPackageService.addTask(pkgId, title);
+    planPackageService.addTask(pkgId, input);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // 할 일 수정 핸들러
+  const handleUpdateTask = (taskId: string, updates: Partial<import('../types/binder').TaskInputDto>) => {
+    const pkgId = ensureCommittedPackageId();
+    planPackageService.updateTask(pkgId, taskId, updates);
     setPackages(planPackageService.loadPackages());
   };
 
@@ -405,6 +412,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                   onUpdatePlan={handleUpdatePlan}
                   onAddRevision={handleAddRevision}
                   onAddTask={handleAddTask}
+                  onUpdateTask={handleUpdateTask}
                   onDeleteTask={handleDeleteTask}
                   onToggleTask={handleToggleTask}
                   onUpdateLogComment={handleUpdateLogComment}

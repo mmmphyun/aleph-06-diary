@@ -40,11 +40,30 @@ export interface PlanLine {
   isStrikethrough: boolean;
 }
 
+export type TaskPriority = 'high' | 'medium' | 'low';
+export type TaskStatus = 'todo' | 'in_progress' | 'done';
+
 export interface TaskItem {
   id: string;
   title: string;
   done: boolean;
+  startDate: string; // YYYY-MM-DD (KST)
+  dueDate: string; // YYYY-MM-DD HH:mm (KST, 필수)
+  priority: TaskPriority; // 'high' | 'medium' | 'low'
+  description?: string; // 선택
+  tags: string[]; // 태그 목록
+  status: TaskStatus; // 'todo' | 'in_progress' | 'done'
   createdAt: string;
+}
+
+export interface TaskInputDto {
+  title: string;
+  startDate?: string;
+  dueDate?: string;
+  priority?: TaskPriority;
+  description?: string;
+  tags?: string[];
+  status?: TaskStatus;
 }
 
 export interface LogItem {
@@ -81,7 +100,8 @@ export interface IPlanPackageRepository {
   applyTasksTemplate(pkgId: string): PlanPackage;
   updatePlanText(pkgId: string, title: string, content: string): PlanPackage;
   addRevision(pkgId: string, revision: TextRevision): PlanPackage;
-  addTask(pkgId: string, title: string): PlanPackage;
+  addTask(pkgId: string, input: string | TaskInputDto): PlanPackage;
+  updateTask(pkgId: string, taskId: string, updates: Partial<TaskInputDto>): PlanPackage;
   deleteTask(pkgId: string, taskId: string): PlanPackage;
   updateLogComment(pkgId: string, logId: string, comment: string): PlanPackage;
   toggleTaskDone(pkgId: string, taskId: string, comment?: string): { packages: PlanPackage[]; updatedPkg: PlanPackage };

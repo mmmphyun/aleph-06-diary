@@ -1,6 +1,16 @@
-import React, { useState } from 'react';
-import { PlanPackage, TaskItem, LogItem, TextRevision } from '../types/binder';
+import React, { useState, useMemo } from 'react';
+import {
+  PlanPackage,
+  TaskItem,
+  TaskInputDto,
+  TaskPriority,
+  TaskStatus,
+  LogItem,
+  TextRevision,
+} from '../types/binder';
 import { PlanSpreadView } from './PlanSpreadView';
+import { queryTasks } from '../utils/taskFilterSort';
+import { getTodayKST, getDefaultDueDateKST } from '../utils/dateUtils';
 import {
   Plus,
   CheckSquare,
@@ -11,6 +21,10 @@ import {
   Clock,
   Sparkles,
   Lock,
+  Search,
+  Edit2,
+  X,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 interface WritingCanvasProps {
@@ -20,7 +34,8 @@ interface WritingCanvasProps {
   onNavigateToTitlePage?: () => void;
   onUpdatePlan: (title: string, content: string) => void;
   onAddRevision: (rev: TextRevision) => void;
-  onAddTask: (title: string) => void;
+  onAddTask: (input: string | TaskInputDto) => void;
+  onUpdateTask?: (taskId: string, updates: Partial<TaskInputDto>) => void;
   onDeleteTask: (taskId: string) => void;
   onToggleTask: (taskId: string, comment?: string) => void;
   onUpdateLogComment: (logId: string, comment: string) => void;
@@ -44,6 +59,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   onUpdatePlan,
   onAddRevision,
   onAddTask,
+  onUpdateTask,
   onDeleteTask,
   onToggleTask,
   onUpdateLogComment,
@@ -54,7 +70,37 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
 }) => {
   const [newTaskInput, setNewTaskInput] = useState('');
 
+  // M3: 탐색 필터 및 검색 상태
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<TaskStatus | 'all'>('all');
+  const [filterPriority, setFilterPriority] = useState<TaskPriority | 'all'>('all');
+  const [filterDueDate, setFilterDueDate] = useState('');
+  const [showFilterBar, setShowFilterBar] = useState(false);
+
+  // M3: 할 일 상세 / 생성 / 수정 모달 상태
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
+  const [selectedTaskForEdit, setSelectedTaskForEdit] = useState<TaskItem | null>(null);
+
+  // 모달 폼 필드 상태
+  const [formTitle, setFormTitle] = useState('');
+  const [formStartDate, setFormStartDate] = useState('');
+  const [formDueDate, setFormDueDate] = useState('');
+  const [formPriority, setFormPriority] = useState<TaskPriority>('medium');
+  const [formStatus, setFormStatus] = useState<TaskStatus>('todo');
+  const [formDescription, setFormDescription] = useState('');
+  const [formTagsStr, setFormTagsStr] = useState('');
+
   const { title: planTitle, content: planContent, revisions, tasks, logs, planStatus = 'draft' } = currentPackage;
+
+  // M3: 4차 결정적 정렬 및 AND 복합 필터가 적용된 할 일 목록 계산
+  const processedTasks = useMemo(() => {
+    return queryTasks(tasks, {
+      searchQuery,
+      status: filterStatus,
+      priority: filterPriority,
+      dueDate: filterDueDate,
+    });
+  }, [tasks, searchQuery, filterStatus, filterPriority, filterDueDate]);
 
   // 1. 계획 본문 줄 분할 (14줄 단위 스프레드 분할)
   const contentLines = planContent.split('\n').filter(Boolean);
@@ -67,8 +113,9 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   }
 
   // 3. 할 일 템플릿 적용 여부에 따라 백지 속지 또는 다중 할 일 속지 추가 (14개 단위 자동 연장)
-  const isTasksApplied = Boolean(currentPackage.tasksTemplateApplied || currentPackage.tasks.length > 0);
-  const tasksSpreadCount = isTasksApplied ? Math.max(1, Math.ceil(Math.max(1, tasks.length) / 14)) : 0;
+  const isTasksApplied = Boolean(currentPackage.tasksTemplateApplied || tasks.length > 0);
+  const activeTaskList = showFilterBar || searchQuery ? processedTasks : tasks;
+  const tasksSpreadCount = isTasksApplied ? Math.max(1, Math.ceil(Math.max(1, activeTaskList.length) / 14)) : 0;
 
   if (isTasksApplied) {
     for (let j = 0; j < tasksSpreadCount; j++) {
@@ -79,7 +126,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   }
 
   // 4. 할 일이 1개 이상 완료되었거나 실행 로그가 있으면 실행 일지 속지 자동 활성화 (14개 단위 자동 연장)
-  const hasCompletedTasks = currentPackage.tasks.some((t) => t.done) || currentPackage.logs.length > 0;
+  const hasCompletedTasks = tasks.some((t) => t.done) || logs.length > 0;
   const logsSpreadCount = hasCompletedTasks && isTasksApplied ? Math.max(1, Math.ceil(Math.max(1, logs.length) / 14)) : 0;
 
   if (hasCompletedTasks && isTasksApplied) {
@@ -100,17 +147,92 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   const leftPageStr = `PLAN CH.${chStr} • P.${String(leftPageNum).padStart(2, '0')}`;
   const rightPageStr = `PLAN CH.${chStr} • P.${String(rightPageNum).padStart(2, '0')}`;
 
-  // 할 일 추가 제출
-  const handleAddTask = () => {
+  // 신규 할 일 생성 모달 오픈
+  const handleOpenCreateModal = () => {
+    const today = getTodayKST();
+    const defaultDue = getDefaultDueDateKST(today);
+    setFormTitle(newTaskInput.trim());
+    setFormStartDate(today);
+    setFormDueDate(defaultDue);
+    setFormPriority('medium');
+    setFormStatus('todo');
+    setFormDescription('');
+    setFormTagsStr('');
+    setModalMode('create');
+  };
+
+  // 기존 할 일 편집 모달 오픈
+  const handleOpenEditModal = (task: TaskItem) => {
+    setSelectedTaskForEdit(task);
+    setFormTitle(task.title);
+    setFormStartDate(task.startDate);
+    setFormDueDate(task.dueDate);
+    setFormPriority(task.priority);
+    setFormStatus(task.status);
+    setFormDescription(task.description || '');
+    setFormTagsStr(task.tags.join(', '));
+    setModalMode('edit');
+  };
+
+  // 모달 저장 처리
+  const handleSaveModal = () => {
+    const trimmedTitle = formTitle.trim();
+    if (!trimmedTitle) return;
+
+    const parsedTags = formTagsStr
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    if (modalMode === 'create') {
+      onAddTask({
+        title: trimmedTitle,
+        startDate: formStartDate || getTodayKST(),
+        dueDate: formDueDate || getDefaultDueDateKST(formStartDate || getTodayKST()),
+        priority: formPriority,
+        status: formStatus,
+        description: formDescription.trim(),
+        tags: parsedTags,
+      });
+      setNewTaskInput('');
+    } else if (modalMode === 'edit' && selectedTaskForEdit && onUpdateTask) {
+      onUpdateTask(selectedTaskForEdit.id, {
+        title: trimmedTitle,
+        startDate: formStartDate,
+        dueDate: formDueDate,
+        priority: formPriority,
+        status: formStatus,
+        description: formDescription.trim(),
+        tags: parsedTags,
+      });
+    }
+
+    setModalMode(null);
+    setSelectedTaskForEdit(null);
+  };
+
+  // 인라인 간편 추가 (기본값 기계적 적용: 오늘 시작, 7일 뒤 23:30 마감)
+  const handleQuickAddTask = () => {
     const trimmed = newTaskInput.trim();
     if (!trimmed) return;
-    onAddTask(trimmed);
+    const today = getTodayKST();
+    onAddTask({
+      title: trimmed,
+      startDate: today,
+      dueDate: getDefaultDueDateKST(today),
+      priority: 'medium',
+      status: 'todo',
+      description: '',
+      tags: [],
+    });
     setNewTaskInput('');
   };
 
-  // 한 면당 7개 기준 분할 (현재 할 일 스프레드 기준)
+  // 한 면당 7개 기준 분할 (현재 할 일 스프레드 기준 - 검색/필터 적용 리스트 반영)
   const currentTasksChunk =
-    activeSpread.kind === 'tasks' ? tasks.slice(activeSpread.itemOffset, activeSpread.itemOffset + 14) : [];
+    activeSpread.kind === 'tasks'
+      ? activeTaskList.slice(activeSpread.itemOffset, activeSpread.itemOffset + 14)
+      : [];
   const tasksLeft = currentTasksChunk.slice(0, 7);
   const tasksRight = currentTasksChunk.slice(7);
 
@@ -285,7 +407,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
         <>
           {/* 좌측 면 (Tasks Left: 480×640px) */}
           <div
-            className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4]"
+            className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4] relative"
             style={{ backgroundColor: 'var(--color-paper)' }}
           >
             <div>
@@ -296,70 +418,252 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                     섹션 2: 할 일 (Tasks {activeSpread.tasksIndex + 1}/{tasksSpreadCount})
                   </span>
                 </div>
-                <span className="font-mono text-[11px] text-stone-400">{leftPageStr}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowFilterBar(!showFilterBar)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-sans flex items-center gap-1 border transition-colors cursor-pointer ${
+                      showFilterBar || searchQuery || filterStatus !== 'all' || filterPriority !== 'all' || filterDueDate
+                        ? 'bg-amber-100 text-amber-900 border-amber-300 font-semibold'
+                        : 'bg-stone-100 text-stone-600 border-stone-200 hover:bg-stone-200'
+                    }`}
+                    title="할 일 검색·필터 인덱스 메모지 토글"
+                  >
+                    <SlidersHorizontal className="w-2.5 h-2.5" />
+                    <span>탐색 인덱스</span>
+                  </button>
+                  <span className="font-mono text-[11px] text-stone-400">{leftPageStr}</span>
+                </div>
               </div>
 
-              <div className="mt-3 flex items-center justify-between pb-2 border-b border-stone-300">
+              {/* M3: 상단 부착 인덱스 메모지 (검색 · AND 복합 필터 · 4차 정렬 안내) */}
+              {showFilterBar && (
+                <div className="mt-2.5 p-3 rounded-lg bg-amber-50/90 border border-amber-200 shadow-xs space-y-2 text-stone-800 backdrop-blur-2xs">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-1.5 bg-white px-2 py-1 rounded border border-amber-300 text-xs">
+                      <Search className="w-3.5 h-3.5 text-stone-400" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="제목 또는 설명 검색..."
+                        className="w-full bg-transparent outline-none font-sans text-xs placeholder:text-stone-400"
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery('')}
+                          className="text-stone-400 hover:text-stone-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5 text-[11px]">
+                    {/* 상태 필터 */}
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[10px] text-stone-500 font-medium">상태</span>
+                      <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value as any)}
+                        className="bg-white border border-stone-200 rounded px-1.5 py-1 text-xs outline-none"
+                      >
+                        <option value="all">전체 상태</option>
+                        <option value="todo">진행 전 (todo)</option>
+                        <option value="in_progress">진행 중 (in_progress)</option>
+                        <option value="done">완료 (done)</option>
+                      </select>
+                    </div>
+
+                    {/* 우선순위 필터 */}
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[10px] text-stone-500 font-medium">우선순위</span>
+                      <select
+                        value={filterPriority}
+                        onChange={(e) => setFilterPriority(e.target.value as any)}
+                        className="bg-white border border-stone-200 rounded px-1.5 py-1 text-xs outline-none"
+                      >
+                        <option value="all">전체 우선순위</option>
+                        <option value="high">높음 (high)</option>
+                        <option value="medium">보통 (medium)</option>
+                        <option value="low">낮음 (low)</option>
+                      </select>
+                    </div>
+
+                    {/* 마감일 필터 */}
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[10px] text-stone-500 font-medium">마감일</span>
+                      <input
+                        type="date"
+                        value={filterDueDate}
+                        onChange={(e) => setFilterDueDate(e.target.value)}
+                        className="bg-white border border-stone-200 rounded px-1 py-0.5 text-[11px] outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-1 border-t border-amber-200/60 flex items-center justify-between text-[10px] text-stone-500">
+                    <span className="font-mono">정렬: 마감일↑ → 우선순위↑ → 제목순 → ID↑ (4차)</span>
+                    {(searchQuery || filterStatus !== 'all' || filterPriority !== 'all' || filterDueDate) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery('');
+                          setFilterStatus('all');
+                          setFilterPriority('all');
+                          setFilterDueDate('');
+                        }}
+                        className="text-amber-800 hover:underline font-semibold cursor-pointer"
+                      >
+                        초기화
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-2.5 flex items-center justify-between pb-2 border-b border-stone-300">
                 <span className="font-sans text-xs font-bold text-stone-800">
-                  체크리스트 ({activeSpread.tasksIndex * 14 + 1}~{Math.min(tasks.length, (activeSpread.tasksIndex + 1) * 14)})
+                  체크리스트 ({activeSpread.tasksIndex * 14 + 1}~{Math.min(activeTaskList.length, (activeSpread.tasksIndex + 1) * 14)})
                 </span>
-                <span className="font-mono text-[10px] text-stone-400">{tasks.length} TASKS TOTAL</span>
+                <span className="font-mono text-[10px] text-stone-400">
+                  {activeTaskList.length} / {tasks.length} TASKS
+                </span>
               </div>
 
               {/* 할 일 좌측 7개 목록 */}
-              <div className="mt-3 h-[380px] overflow-hidden space-y-2">
-                {tasksLeft.map((task: TaskItem) => (
-                  <div
-                    key={task.id}
-                    className="h-10 flex items-center justify-between px-2 rounded hover:bg-stone-50 transition-colors group cursor-pointer border-b border-stone-200/60"
-                    onClick={() => onToggleTask(task.id)}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {task.done ? (
-                        <CheckSquare className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                      ) : (
-                        <Square className="w-4 h-4 text-stone-400 flex-shrink-0" />
-                      )}
-                      <span
-                        className={`font-handwriting text-base truncate ${
-                          task.done ? 'line-through text-stone-400' : 'text-stone-900'
-                        }`}
-                      >
-                        {task.title}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteTask(task.id);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-stone-300 hover:text-red-500 transition-opacity cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
+              <div className="mt-2 h-[350px] overflow-hidden space-y-1.5">
+                {tasksLeft.map((task: TaskItem) => {
+                  const statusStickerClass =
+                    task.status === 'done'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      : task.status === 'in_progress'
+                      ? 'bg-amber-100 text-amber-800 border-amber-300'
+                      : 'bg-stone-100 text-stone-700 border-stone-300';
 
-                {/* 할 일 추가 인풋 */}
-                <div className="pt-2 flex items-center gap-2">
+                  const priorityBadgeClass =
+                    task.priority === 'high'
+                      ? 'text-red-700 bg-red-50 border-red-200'
+                      : task.priority === 'medium'
+                      ? 'text-amber-700 bg-amber-50 border-amber-200'
+                      : 'text-stone-600 bg-stone-50 border-stone-200';
+
+                  return (
+                    <div
+                      key={task.id}
+                      className="min-h-10 py-1.5 px-2 rounded hover:bg-stone-50/80 transition-colors group cursor-pointer border-b border-stone-200/60 flex items-center justify-between gap-2"
+                      onClick={() => onToggleTask(task.id)}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {task.done ? (
+                          <CheckSquare className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                        ) : (
+                          <Square className="w-4 h-4 text-stone-400 flex-shrink-0" />
+                        )}
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`font-handwriting text-base leading-tight truncate ${
+                                task.done ? 'line-through text-stone-400' : 'text-stone-900'
+                              }`}
+                            >
+                              {task.title}
+                            </span>
+
+                            {/* 상태 스티커 */}
+                            <span
+                              className={`text-[9px] font-sans px-1.5 py-0.2 rounded border flex-shrink-0 ${statusStickerClass}`}
+                            >
+                              {task.status === 'done'
+                                ? '완료'
+                                : task.status === 'in_progress'
+                                ? '진행 중'
+                                : '진행 전'}
+                            </span>
+
+                            {/* 우선순위 뱃지 */}
+                            <span
+                              className={`text-[9px] font-sans px-1 py-0.2 rounded border flex-shrink-0 ${priorityBadgeClass}`}
+                            >
+                              {task.priority === 'high'
+                                ? '높음'
+                                : task.priority === 'medium'
+                                ? '보통'
+                                : '낮음'}
+                            </span>
+                          </div>
+
+                          {/* 마감일 및 태그 표시 */}
+                          <div className="flex items-center gap-2 text-[10px] text-stone-400 font-mono mt-0.5">
+                            <span>마감: {task.dueDate}</span>
+                            {task.tags && task.tags.length > 0 && (
+                              <span className="font-sans text-stone-500 truncate max-w-[140px]">
+                                #{task.tags.join(' #')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 액션 버튼 (수정/삭제) */}
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditModal(task);
+                          }}
+                          className="p-1 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer"
+                          title="할 일 세부 수정"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteTask(task.id);
+                          }}
+                          className="p-1 text-stone-300 hover:text-red-500 transition-colors cursor-pointer"
+                          title="할 일 삭제"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* 할 일 인라인 추가 인풋 + 상세 작성 버튼 */}
+                <div className="pt-2 flex items-center gap-1.5">
                   <Plus className="w-4 h-4 text-stone-400 ml-1" />
                   <input
                     type="text"
                     value={newTaskInput}
                     onChange={(e) => setNewTaskInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleAddTask();
+                      if (e.key === 'Enter') handleQuickAddTask();
                     }}
-                    placeholder="+ 새 할 일 입력 후 Enter"
+                    placeholder="+ 새 할 일 입력 (Enter 빠른 추가)"
                     className="flex-1 bg-transparent font-handwriting text-base text-stone-800 outline-none placeholder:font-sans placeholder:text-xs placeholder:text-stone-400"
                   />
                   <button
                     type="button"
-                    onClick={handleAddTask}
+                    onClick={handleQuickAddTask}
                     className="px-2 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-700 font-sans text-xs border border-stone-300 cursor-pointer"
                   >
                     추가
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenCreateModal}
+                    className="px-2 py-1 rounded bg-teal-50 hover:bg-teal-100 text-teal-800 font-sans text-xs border border-teal-300 cursor-pointer"
+                    title="상세 속성(우선순위, 마감일, 설명, 태그) 지정 작성"
+                  >
+                    상세 작성
                   </button>
                 </div>
               </div>
@@ -381,7 +685,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
 
           {/* 우측 면 (Tasks Right: 480×640px) */}
           <div
-            className="w-[480px] h-full p-8 flex flex-col justify-between"
+            className="w-[480px] h-full p-8 flex flex-col justify-between relative"
             style={{ backgroundColor: 'var(--color-paper)' }}
           >
             <div>
@@ -391,7 +695,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
               </div>
 
               {/* 할 일 우측 7개 목록 */}
-              <div className="mt-4 h-[400px] overflow-hidden space-y-2">
+              <div className="mt-4 h-[400px] overflow-hidden space-y-1.5">
                 {tasksRight.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400 border border-dashed border-stone-200 rounded-lg bg-stone-50/40">
                     <Sparkles className="w-8 h-8 text-stone-300 mb-2 stroke-1" />
@@ -405,38 +709,107 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                     </p>
                   </div>
                 ) : (
-                  tasksRight.map((task: TaskItem) => (
-                    <div
-                      key={task.id}
-                      className="h-10 flex items-center justify-between px-2 rounded hover:bg-stone-50 transition-colors group cursor-pointer border-b border-stone-200/60"
-                      onClick={() => onToggleTask(task.id)}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        {task.done ? (
-                          <CheckSquare className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                        ) : (
-                          <Square className="w-4 h-4 text-stone-400 flex-shrink-0" />
-                        )}
-                        <span
-                          className={`font-handwriting text-base truncate ${
-                            task.done ? 'line-through text-stone-400' : 'text-stone-900'
-                          }`}
-                        >
-                          {task.title}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteTask(task.id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-stone-300 hover:text-red-500 transition-opacity cursor-pointer"
+                  tasksRight.map((task: TaskItem) => {
+                    const statusStickerClass =
+                      task.status === 'done'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : task.status === 'in_progress'
+                        ? 'bg-amber-100 text-amber-800 border-amber-300'
+                        : 'bg-stone-100 text-stone-700 border-stone-300';
+
+                    const priorityBadgeClass =
+                      task.priority === 'high'
+                        ? 'text-red-700 bg-red-50 border-red-200'
+                        : task.priority === 'medium'
+                        ? 'text-amber-700 bg-amber-50 border-amber-200'
+                        : 'text-stone-600 bg-stone-50 border-stone-200';
+
+                    return (
+                      <div
+                        key={task.id}
+                        className="min-h-10 py-1.5 px-2 rounded hover:bg-stone-50/80 transition-colors group cursor-pointer border-b border-stone-200/60 flex items-center justify-between gap-2"
+                        onClick={() => onToggleTask(task.id)}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {task.done ? (
+                            <CheckSquare className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                          ) : (
+                            <Square className="w-4 h-4 text-stone-400 flex-shrink-0" />
+                          )}
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`font-handwriting text-base leading-tight truncate ${
+                                  task.done ? 'line-through text-stone-400' : 'text-stone-900'
+                               }`}
+                              >
+                                {task.title}
+                              </span>
+
+                              {/* 상태 스티커 */}
+                              <span
+                                className={`text-[9px] font-sans px-1.5 py-0.2 rounded border flex-shrink-0 ${statusStickerClass}`}
+                              >
+                                {task.status === 'done'
+                                  ? '완료'
+                                  : task.status === 'in_progress'
+                                  ? '진행 중'
+                                  : '진행 전'}
+                              </span>
+
+                              {/* 우선순위 뱃지 */}
+                              <span
+                                className={`text-[9px] font-sans px-1 py-0.2 rounded border flex-shrink-0 ${priorityBadgeClass}`}
+                              >
+                                {task.priority === 'high'
+                                  ? '높음'
+                                  : task.priority === 'medium'
+                                  ? '보통'
+                                  : '낮음'}
+                              </span>
+                            </div>
+
+                            {/* 마감일 및 태그 표시 */}
+                            <div className="flex items-center gap-2 text-[10px] text-stone-400 font-mono mt-0.5">
+                              <span>마감: {task.dueDate}</span>
+                              {task.tags && task.tags.length > 0 && (
+                                <span className="font-sans text-stone-500 truncate max-w-[140px]">
+                                  #{task.tags.join(' #')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 액션 버튼 (수정/삭제) */}
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEditModal(task);
+                            }}
+                            className="p-1 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer"
+                            title="할 일 세부 수정"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteTask(task.id);
+                            }}
+                            className="p-1 text-stone-300 hover:text-red-500 transition-colors cursor-pointer"
+                            title="할 일 삭제"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -479,6 +852,146 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
               )}
             </div>
           </div>
+
+          {/* M3: 할 일 작성 / 수정 모달 다이얼로그 */}
+          {modalMode && (
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center p-4"
+              style={{ zIndex: 50 }}
+              onClick={() => setModalMode(null)}
+            >
+              <div
+                className="w-[420px] rounded-xl bg-white border border-stone-200 shadow-xl p-5 space-y-4"
+                style={{ backgroundColor: 'var(--color-paper, #FCFAF7)' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+                  <h3 className="font-serif text-base font-bold text-stone-900">
+                    {modalMode === 'create' ? '새 할 일 상세 작성' : '할 일 속성 수정'}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setModalMode(null)}
+                    className="text-stone-400 hover:text-stone-600 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-3 font-sans text-xs text-stone-700">
+                  {/* 제목 */}
+                  <div>
+                    <label className="block font-medium text-stone-600 mb-1">
+                      할 일 제목 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formTitle}
+                      onChange={(e) => setFormTitle(e.target.value)}
+                      placeholder="구체적 실행 제목을 입력하세요"
+                      className="w-full bg-white border border-stone-300 rounded px-2.5 py-1.5 text-xs outline-none focus:border-stone-500"
+                    />
+                  </div>
+
+                  {/* 시작일 & 마감일시 */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block font-medium text-stone-600 mb-1">시작일 (KST)</label>
+                      <input
+                        type="date"
+                        value={formStartDate}
+                        onChange={(e) => setFormStartDate(e.target.value)}
+                        className="w-full bg-white border border-stone-300 rounded px-2 py-1 text-xs outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium text-stone-600 mb-1">
+                        마감일시 (필수) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formDueDate}
+                        onChange={(e) => setFormDueDate(e.target.value)}
+                        placeholder="YYYY-MM-DD 23:30"
+                        className="w-full bg-white border border-stone-300 rounded px-2 py-1 text-xs outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 우선순위 & 상태 */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block font-medium text-stone-600 mb-1">우선순위</label>
+                      <select
+                        value={formPriority}
+                        onChange={(e) => setFormPriority(e.target.value as any)}
+                        className="w-full bg-white border border-stone-300 rounded px-2 py-1 text-xs outline-none"
+                      >
+                        <option value="high">높음 (high)</option>
+                        <option value="medium">보통 (medium)</option>
+                        <option value="low">낮음 (low)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-medium text-stone-600 mb-1">상태 (스티커)</label>
+                      <select
+                        value={formStatus}
+                        onChange={(e) => setFormStatus(e.target.value as any)}
+                        className="w-full bg-white border border-stone-300 rounded px-2 py-1 text-xs outline-none"
+                      >
+                        <option value="todo">진행 전 (todo)</option>
+                        <option value="in_progress">진행 중 (in_progress)</option>
+                        <option value="done">완료 (done)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 설명 */}
+                  <div>
+                    <label className="block font-medium text-stone-600 mb-1">설명 (선택)</label>
+                    <textarea
+                      value={formDescription}
+                      onChange={(e) => setFormDescription(e.target.value)}
+                      placeholder="구체적인 실행 가이드나 메모를 입력하세요"
+                      rows={2}
+                      className="w-full bg-white border border-stone-300 rounded px-2.5 py-1.5 text-xs outline-none focus:border-stone-500 resize-none"
+                    />
+                  </div>
+
+                  {/* 태그 */}
+                  <div>
+                    <label className="block font-medium text-stone-600 mb-1">
+                      태그 (쉼표로 구분)
+                    </label>
+                    <input
+                      type="text"
+                      value={formTagsStr}
+                      onChange={(e) => setFormTagsStr(e.target.value)}
+                      placeholder="예: CS, 네트워크, TCP"
+                      className="w-full bg-white border border-stone-300 rounded px-2.5 py-1.5 text-xs outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-stone-200 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalMode(null)}
+                    className="px-3 py-1.5 rounded border border-stone-300 bg-stone-100 hover:bg-stone-200 text-stone-700 font-sans text-xs cursor-pointer"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveModal}
+                    className="px-3 py-1.5 rounded bg-stone-900 hover:bg-stone-800 text-stone-100 font-sans text-xs font-medium cursor-pointer"
+                  >
+                    {modalMode === 'create' ? '할 일 추가' : '수정 완료'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 
