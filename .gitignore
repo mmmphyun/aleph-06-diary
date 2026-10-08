@@ -21,3 +21,10 @@ reference/fonts/*.ttf
 public/fonts/*.woff2
 public/fonts/*.woff
 public/fonts/*.ttf
+
+# Design Reference
+.design/screenshots/*
+!.design/screenshots/.gitkeep
+.design/fonts/*.woff2
+.design/fonts/*.woff
+.design/fonts/*.ttf
