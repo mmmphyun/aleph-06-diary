@@ -183,12 +183,13 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   };
 
   // 할 일 토글 및 실행 일지 연쇄 생성 핸들러
-  const handleToggleTask = (taskId: string, comment?: string) => {
+  const handleToggleTask = (taskId: string, comment?: string, impediment?: string) => {
     const pkgId = ensureCommittedPackageId();
     const { packages: updatedPackages } = planPackageService.toggleTaskDone(
       pkgId,
       taskId,
-      comment
+      comment,
+      impediment
     );
     setPackages(updatedPackages);
   };
@@ -197,6 +198,13 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   const handleUpdateLogComment = (logId: string, comment: string) => {
     const pkgId = ensureCommittedPackageId();
     planPackageService.updateLogComment(pkgId, logId, comment);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // 실행 일지 코멘트 및 장애 요인 수정 핸들러
+  const handleUpdateLog = (logId: string, updates: { comment?: string; impediment?: string }) => {
+    const pkgId = ensureCommittedPackageId();
+    planPackageService.updateLog(pkgId, logId, updates);
     setPackages(planPackageService.loadPackages());
   };
 
@@ -416,6 +424,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                   onDeleteTask={handleDeleteTask}
                   onToggleTask={handleToggleTask}
                   onUpdateLogComment={handleUpdateLogComment}
+                  onUpdateLog={handleUpdateLog}
                   onApplyTasksTemplate={handleApplyTasksTemplate}
                   onConfirmPlan={handleConfirmPlan}
                   onAppendNewPlanPackage={handleAppendNewPlanPackage}

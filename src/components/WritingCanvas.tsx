@@ -10,7 +10,12 @@ import {
 } from '../types/binder';
 import { PlanSpreadView } from './PlanSpreadView';
 import { queryTasks } from '../utils/taskFilterSort';
-import { getTodayKST, getDefaultDueDateKST } from '../utils/dateUtils';
+import {
+  getTodayKST,
+  getDefaultDueDateKST,
+  calculateActualMinutes,
+  formatActualMinutes,
+} from '../utils/dateUtils';
 import {
   Plus,
   CheckSquare,
@@ -37,8 +42,9 @@ interface WritingCanvasProps {
   onAddTask: (input: string | TaskInputDto) => void;
   onUpdateTask?: (taskId: string, updates: Partial<TaskInputDto>) => void;
   onDeleteTask: (taskId: string) => void;
-  onToggleTask: (taskId: string, comment?: string) => void;
+  onToggleTask: (taskId: string, comment?: string, impediment?: string) => void;
   onUpdateLogComment: (logId: string, comment: string) => void;
+  onUpdateLog?: (logId: string, updates: { comment?: string; impediment?: string }) => void;
   onApplyTasksTemplate: () => void;
   onConfirmPlan?: () => void;
   onAppendNewPlanPackage?: () => void;
@@ -63,6 +69,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   onDeleteTask,
   onToggleTask,
   onUpdateLogComment,
+  onUpdateLog,
   onApplyTasksTemplate,
   onConfirmPlan,
   onAppendNewPlanPackage,
@@ -1033,33 +1040,74 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                     </p>
                   </div>
                 ) : (
-                  logsLeft.map((log: LogItem) => (
-                    <div
-                      key={log.id}
-                      className="p-3 rounded bg-white/70 border border-stone-200 space-y-1.5 shadow-2xs"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-[10px] text-stone-500 font-semibold">
-                          [{log.completedAt}]
-                        </span>
-                        <span className="font-sans text-[10px] text-emerald-700 font-medium">
-                          ✓ 완료
-                        </span>
+                  logsLeft.map((log: LogItem) => {
+                    const durationMins = log.actualMinutes ?? calculateActualMinutes(log.startedAt, log.endedAt);
+                    const formattedDuration = formatActualMinutes(durationMins);
+
+                    return (
+                      <div
+                        key={log.id}
+                        className="p-3 rounded bg-white/70 border border-stone-200 space-y-1.5 shadow-2xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-[10px] text-stone-500 font-semibold truncate max-w-[240px]">
+                            {log.completedAt}
+                          </span>
+                          <span className="font-sans text-[10px] text-emerald-700 font-medium flex-shrink-0">
+                            ✓ 완료
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="font-handwriting text-base text-stone-900 leading-snug truncate flex-1">
+                            {log.taskTitle}
+                          </div>
+                          {durationMins > 0 && (
+                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 flex-shrink-0">
+                              소요: {formattedDuration} ({durationMins}분)
+                            </span>
+                          )}
+                        </div>
+
+                        {/* 시작~종료 일시 및 막혔던 이유 인라인 표시 */}
+                        <div className="pt-1 border-t border-stone-100 flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-sans text-[9px] text-stone-400 font-medium">소회:</span>
+                            <input
+                              type="text"
+                              value={log.comment}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (onUpdateLog) {
+                                  onUpdateLog(log.id, { comment: val });
+                                } else {
+                                  onUpdateLogComment(log.id, val);
+                                }
+                              }}
+                              placeholder="한 줄 성찰 소회를 적으세요"
+                              className="flex-1 bg-transparent font-handwriting text-xs text-stone-600 outline-none placeholder:font-sans placeholder:text-[10px] placeholder:text-stone-400"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-sans text-[9px] text-rose-500 font-medium">장애:</span>
+                            <input
+                              type="text"
+                              value={log.impediment || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (onUpdateLog) {
+                                  onUpdateLog(log.id, { impediment: val });
+                                }
+                              }}
+                              placeholder="막혔던 이유나 방해 요인 (선택)"
+                              className="flex-1 bg-transparent font-handwriting text-xs text-rose-700 outline-none placeholder:font-sans placeholder:text-[10px] placeholder:text-stone-400"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div className="font-handwriting text-base text-stone-900 leading-snug">
-                        {log.taskTitle}
-                      </div>
-                      <div className="pt-1 border-t border-stone-100">
-                        <input
-                          type="text"
-                          value={log.comment}
-                          onChange={(e) => onUpdateLogComment(log.id, e.target.value)}
-                          placeholder="한 줄 소회나 막혔던 이유를 적으세요"
-                          className="w-full bg-transparent font-handwriting text-xs text-stone-600 outline-none placeholder:font-sans placeholder:text-[10px] placeholder:text-stone-400"
-                        />
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -1099,31 +1147,72 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                     </p>
                   </div>
                 ) : (
-                  logsRight.map((log: LogItem) => (
-                    <div
-                      key={log.id}
-                      className="p-3 rounded bg-white/70 border border-stone-200 space-y-1.5 shadow-2xs"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-[10px] text-stone-500">
-                          [{log.completedAt}]
-                        </span>
-                        <span className="font-sans text-[10px] text-emerald-700">✓ 완료</span>
+                  logsRight.map((log: LogItem) => {
+                    const durationMins = log.actualMinutes ?? calculateActualMinutes(log.startedAt, log.endedAt);
+                    const formattedDuration = formatActualMinutes(durationMins);
+
+                    return (
+                      <div
+                        key={log.id}
+                        className="p-3 rounded bg-white/70 border border-stone-200 space-y-1.5 shadow-2xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-[10px] text-stone-500 truncate max-w-[240px]">
+                            {log.completedAt}
+                          </span>
+                          <span className="font-sans text-[10px] text-emerald-700 flex-shrink-0">✓ 완료</span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="font-handwriting text-base text-stone-900 truncate flex-1">
+                            {log.taskTitle}
+                          </div>
+                          {durationMins > 0 && (
+                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 flex-shrink-0">
+                              소요: {formattedDuration} ({durationMins}분)
+                            </span>
+                          )}
+                        </div>
+
+                        {/* 시작~종료 일시 및 막혔던 이유 인라인 표시 */}
+                        <div className="pt-1 border-t border-stone-100 flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-sans text-[9px] text-stone-400 font-medium">소회:</span>
+                            <input
+                              type="text"
+                              value={log.comment}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (onUpdateLog) {
+                                  onUpdateLog(log.id, { comment: val });
+                                } else {
+                                  onUpdateLogComment(log.id, val);
+                                }
+                              }}
+                              placeholder="한 줄 소회 기록"
+                              className="flex-1 bg-transparent font-handwriting text-xs text-stone-600 outline-none"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-sans text-[9px] text-rose-500 font-medium">장애:</span>
+                            <input
+                              type="text"
+                              value={log.impediment || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (onUpdateLog) {
+                                  onUpdateLog(log.id, { impediment: val });
+                                }
+                              }}
+                              placeholder="막혔던 이유나 방해 요인 (선택)"
+                              className="flex-1 bg-transparent font-handwriting text-xs text-rose-700 outline-none"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div className="font-handwriting text-base text-stone-900">
-                        {log.taskTitle}
-                      </div>
-                      <div className="pt-1 border-t border-stone-100">
-                        <input
-                          type="text"
-                          value={log.comment}
-                          onChange={(e) => onUpdateLogComment(log.id, e.target.value)}
-                          placeholder="한 줄 소회 기록"
-                          className="w-full bg-transparent font-handwriting text-xs text-stone-600 outline-none"
-                        />
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

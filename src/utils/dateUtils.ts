@@ -13,6 +13,16 @@ export function getTodayKST(): string {
 }
 
 /**
+ * 현재 일시 KST ISO 8601 형식 문자열 반환 (YYYY-MM-DDTHH:mm:ss+09:00)
+ */
+export function getNowKSTIsoString(): string {
+  const now = new Date();
+  const kstTime = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const iso = kstTime.toISOString(); // e.g. 2026-10-08T17:20:00.000Z
+  return iso.substring(0, 19) + '+09:00';
+}
+
+/**
  * 기준 시작일(YYYY-MM-DD)로부터 N일 뒤 23:30 KST 마감일시 반환
  * @param startDateStr YYYY-MM-DD 형식
  * @param daysOffset 일수 오프셋 (기본 7일)
@@ -31,3 +41,34 @@ export function getDefaultDueDateKST(startDateStr: string, daysOffset = 7): stri
     return `${startDateStr} 23:30`;
   }
 }
+
+/**
+ * 시작 일시와 종료 일시로부터 소요 시간(분) 런타임 계산 (T06-C25)
+ * @param startedAt 시작 일시 (ISO 8601 또는 파싱 가능한 날짜 문자열)
+ * @param endedAt 종료 일시 (ISO 8601 또는 파싱 가능한 날짜 문자열)
+ * @returns 분 단위 정수 (0 이상)
+ */
+export function calculateActualMinutes(startedAt?: string, endedAt?: string): number {
+  if (!startedAt || !endedAt) return 0;
+  const startMs = new Date(startedAt).getTime();
+  const endMs = new Date(endedAt).getTime();
+  if (isNaN(startMs) || isNaN(endMs) || endMs < startMs) return 0;
+  return Math.round((endMs - startMs) / (1000 * 60));
+}
+
+/**
+ * 소요 분(minutes)을 사용자 친화적 문자열로 포맷팅 (예: 90분 -> "1시간 30분", 45분 -> "45분")
+ */
+export function formatActualMinutes(minutes: number): string {
+  if (minutes <= 0) return '0분';
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours > 0 && remainingMinutes > 0) {
+    return `${hours}시간 ${remainingMinutes}분`;
+  }
+  if (hours > 0) {
+    return `${hours}시간`;
+  }
+  return `${remainingMinutes}분`;
+}
+

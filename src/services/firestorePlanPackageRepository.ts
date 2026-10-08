@@ -4,6 +4,7 @@ import {
   writeBatch,
   getDocs,
   onSnapshot,
+  runTransaction,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type {
@@ -15,7 +16,12 @@ import type {
   IPlanPackageRepository,
 } from '../types/binder';
 import { INITIAL_PLAN_PACKAGES } from './planPackageService';
-import { getTodayKST, getDefaultDueDateKST } from '../utils/dateUtils';
+import {
+  getTodayKST,
+  getDefaultDueDateKST,
+  getNowKSTIsoString,
+  calculateActualMinutes,
+} from '../utils/dateUtils';
 
 const STORAGE_CACHE_KEY = 'aleph06_plan_packages';
 
@@ -105,6 +111,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
             description: task.description || '',
             tags: task.tags || [],
             status: task.status,
+            completedAt: task.completedAt || null,
             createdAt: task.createdAt,
           });
         }
@@ -118,6 +125,9 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
             taskId: log.taskId,
             taskTitle: log.taskTitle,
             completedAt: log.completedAt,
+            startedAt: log.startedAt || null,
+            endedAt: log.endedAt || null,
+            impediment: log.impediment || '',
             comment: log.comment,
           });
         }
@@ -179,19 +189,29 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
               description: t.description || '',
               tags: Array.isArray(t.tags) ? t.tags : [],
               status: (t.status as any) || (isDone ? 'done' : 'todo'),
+              completedAt: t.completedAt || (isDone ? t.updatedAt || today : null),
               createdAt: t.createdAt || today,
             };
           });
 
         const planLogs: LogItem[] = logDocs
           .filter((l) => l.planId === p.id)
-          .map((l) => ({
-            id: l.id,
-            taskId: l.taskId,
-            taskTitle: l.taskTitle,
-            completedAt: l.completedAt,
-            comment: l.comment,
-          }));
+          .map((l) => {
+            const startedAt = l.startedAt || undefined;
+            const endedAt = l.endedAt || undefined;
+            const actualMinutes = calculateActualMinutes(startedAt, endedAt);
+            return {
+              id: l.id,
+              taskId: l.taskId,
+              taskTitle: l.taskTitle,
+              completedAt: l.completedAt,
+              startedAt,
+              endedAt,
+              actualMinutes,
+              impediment: l.impediment || '',
+              comment: l.comment || '',
+            };
+          });
 
         return {
           id: p.id,
@@ -243,6 +263,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
           description: task.description || '',
           tags: task.tags || [],
           status: task.status,
+          completedAt: task.completedAt || null,
           createdAt: task.createdAt,
         });
       }
@@ -261,6 +282,9 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
           taskId: log.taskId,
           taskTitle: log.taskTitle,
           completedAt: log.completedAt,
+          startedAt: log.startedAt || null,
+          endedAt: log.endedAt || null,
+          impediment: log.impediment || '',
           comment: log.comment,
         });
       }
@@ -412,6 +436,14 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
       const nextTags = updates.tags !== undefined ? updates.tags : t.tags;
       const nextStatus = updates.status !== undefined ? updates.status : t.status;
       const nextDone = nextStatus === 'done' || (updates.status === undefined && t.done);
+      let nextCompletedAt = t.completedAt;
+      if (updates.status !== undefined) {
+        if (updates.status === 'done') {
+          nextCompletedAt = updates.completedAt || t.completedAt || getNowKSTIsoString();
+        } else {
+          nextCompletedAt = null;
+        }
+      }
 
       return {
         ...t,
@@ -423,6 +455,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
         tags: nextTags,
         status: nextStatus,
         done: nextDone,
+        completedAt: nextCompletedAt,
       };
     });
 
@@ -448,11 +481,26 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
   }
 
   updateLogComment(pkgId: string, logId: string, comment: string): PlanPackage {
+    return this.updateLog(pkgId, logId, { comment });
+  }
+
+  updateLog(
+    pkgId: string,
+    logId: string,
+    updates: { comment?: string; impediment?: string }
+  ): PlanPackage {
     const target = this.cache.find((p) => p.id === pkgId);
     if (!target) return this.cache[0];
     const newPkg: PlanPackage = {
       ...target,
-      logs: target.logs.map((l) => (l.id === logId ? { ...l, comment } : l)),
+      logs: target.logs.map((l) => {
+        if (l.id !== logId) return l;
+        return {
+          ...l,
+          comment: updates.comment !== undefined ? updates.comment : l.comment,
+          impediment: updates.impediment !== undefined ? updates.impediment : l.impediment,
+        };
+      }),
     };
     this.cache = this.cache.map((p) => (p.id === pkgId ? newPkg : p));
     this.saveToLocal();
@@ -463,7 +511,8 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
   toggleTaskDone(
     pkgId: string,
     taskId: string,
-    comment?: string
+    comment?: string,
+    impediment?: string
   ): { packages: PlanPackage[]; updatedPkg: PlanPackage } {
     let targetPkg = this.cache.find((p) => p.id === pkgId);
     if (!targetPkg) return { packages: this.cache, updatedPkg: this.cache[0] };
@@ -472,21 +521,35 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
     if (!targetTask) return { packages: this.cache, updatedPkg: targetPkg };
 
     const nextDone = !targetTask.done;
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const dateStr = `${String(now.getFullYear()).slice(2)}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
+    const nowKst = getNowKSTIsoString();
 
     let updatedLogs = [...targetPkg.logs];
+    let createdLog: LogItem | null = null;
+
     if (nextDone) {
-      const newLog: LogItem = {
+      // 완료 시: 1시간 전 시작 기준의 기본 타임스탬프 산출 (시작일시~종료일시 환산 소요시간 제공)
+      const endDate = new Date();
+      const startDate = new Date(endDate.getTime() - 60 * 60 * 1000);
+      const startKst = new Date(startDate.getTime() + 9 * 60 * 60 * 1000)
+        .toISOString()
+        .substring(0, 19) + '+09:00';
+
+      const actualMinutes = calculateActualMinutes(startKst, nowKst);
+
+      createdLog = {
         id: `log-${Date.now()}`,
         taskId: targetTask.id,
         taskTitle: targetTask.title,
-        completedAt: `${dateStr} ${timeStr}`,
+        completedAt: nowKst,
+        startedAt: startKst,
+        endedAt: nowKst,
+        actualMinutes,
+        impediment: impediment || '',
         comment: comment || '할 일을 완수하고 실행 성찰을 남깁니다.',
       };
-      updatedLogs.push(newLog);
+      updatedLogs.push(createdLog);
     } else {
+      // 진행 중으로 복귀 시: 해당 할 일의 실행 기록 해제
       updatedLogs = updatedLogs.filter((l) => l.taskId !== taskId);
     }
 
@@ -496,9 +559,11 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
             ...t,
             done: nextDone,
             status: nextDone ? ('done' as const) : ('in_progress' as const),
+            completedAt: nextDone ? nowKst : null,
           }
         : t
     );
+
     const newPkg: PlanPackage = {
       ...targetPkg,
       tasks: updatedTasks,
@@ -507,9 +572,91 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
 
     this.cache = this.cache.map((p) => (p.id === pkgId ? newPkg : p));
     this.saveToLocal();
-    this.syncPackageToFirestore(newPkg);
+
+    // Firestore 트랜잭션 기반 원자적 멱등 완료 처리 (옵션 A 확정 규격)
+    this.executeAtomicTaskStatusTransition(
+      pkgId,
+      taskId,
+      nextDone,
+      nowKst,
+      createdLog
+    ).catch((err) => {
+      console.warn('[FirestorePlanPackageRepository] 원자적 트랜잭션 동기화 보류, 배치 동기화 대체:', err);
+      this.syncPackageToFirestore(newPkg);
+    });
+
     return { packages: this.cache, updatedPkg: newPkg };
+  }
+
+  /**
+   * Firestore runTransaction을 통한 할 일 상태 전환의 원자적 멱등성 보장
+   * - 중복 완료 요청 시 status === 'done'을 확인하여 불필요한 중복 상태 갱신 및 집계 왜곡 차단
+   */
+  private async executeAtomicTaskStatusTransition(
+    planId: string,
+    taskId: string,
+    targetDone: boolean,
+    nowKst: string,
+    newLog: LogItem | null
+  ): Promise<void> {
+    const taskRef = doc(db, 'tasks', taskId);
+
+    await runTransaction(db, async (transaction) => {
+      const taskDoc = await transaction.get(taskRef);
+      if (!taskDoc.exists()) {
+        throw new Error(`Task ${taskId} does not exist in Firestore.`);
+      }
+
+      const taskData = taskDoc.data();
+      const currentStatus = taskData.status || (taskData.done ? 'done' : 'todo');
+
+      if (targetDone) {
+        // 이미 완료된 경우 멱등적 탈출 (중복 갱신 원천 방지)
+        if (currentStatus === 'done') {
+          return;
+        }
+
+        // 1. 단일 task 문서의 원자적 상태 및 completedAt 갱신
+        transaction.update(taskRef, {
+          status: 'done',
+          done: true,
+          completedAt: nowKst,
+          updatedAt: new Date().toISOString(),
+        });
+
+        // 2. 실행 기록 추가 (계획 본문 및 revisions는 절대 건드리지 않음)
+        if (newLog) {
+          const logRef = doc(db, 'executionLogs', newLog.id);
+          transaction.set(logRef, {
+            id: newLog.id,
+            planId,
+            taskId: newLog.taskId,
+            taskTitle: newLog.taskTitle,
+            completedAt: newLog.completedAt,
+            startedAt: newLog.startedAt || null,
+            endedAt: newLog.endedAt || null,
+            impediment: newLog.impediment || '',
+            comment: newLog.comment,
+            createdAt: nowKst,
+          });
+        }
+      } else {
+        // 진행 중으로 복귀: 이미 진행 중이거나 done이 아닌 경우 중복 처리 방지
+        if (currentStatus !== 'done') {
+          return;
+        }
+
+        // 1. 상태를 in_progress로 되돌리고 completedAt 초기화
+        transaction.update(taskRef, {
+          status: 'in_progress',
+          done: false,
+          completedAt: null,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    });
   }
 }
 
 export const firestorePlanPackageRepository = new FirestorePlanPackageRepository();
+

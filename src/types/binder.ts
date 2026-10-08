@@ -53,6 +53,7 @@ export interface TaskItem {
   description?: string; // 선택
   tags: string[]; // 태그 목록
   status: TaskStatus; // 'todo' | 'in_progress' | 'done'
+  completedAt?: string | null; // KST ISO 8601 문자열 또는 null
   createdAt: string;
 }
 
@@ -64,6 +65,7 @@ export interface TaskInputDto {
   description?: string;
   tags?: string[];
   status?: TaskStatus;
+  completedAt?: string | null;
 }
 
 export interface LogItem {
@@ -71,7 +73,11 @@ export interface LogItem {
   taskId: string;
   taskTitle: string;
   completedAt: string;
-  comment: string;
+  startedAt?: string; // 시작 일시 (KST ISO 8601)
+  endedAt?: string; // 종료 일시 (KST ISO 8601)
+  actualMinutes?: number; // 런타임 계산된 소요 시간(분)
+  impediment?: string; // 막혔던 이유 / 장애 요인
+  comment: string; // 성찰 및 한 줄 소회
 }
 
 /**
@@ -104,5 +110,6 @@ export interface IPlanPackageRepository {
   updateTask(pkgId: string, taskId: string, updates: Partial<TaskInputDto>): PlanPackage;
   deleteTask(pkgId: string, taskId: string): PlanPackage;
   updateLogComment(pkgId: string, logId: string, comment: string): PlanPackage;
-  toggleTaskDone(pkgId: string, taskId: string, comment?: string): { packages: PlanPackage[]; updatedPkg: PlanPackage };
+  updateLog(pkgId: string, logId: string, updates: { comment?: string; impediment?: string }): PlanPackage;
+  toggleTaskDone(pkgId: string, taskId: string, comment?: string, impediment?: string): { packages: PlanPackage[]; updatedPkg: PlanPackage };
 }
