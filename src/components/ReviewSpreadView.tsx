@@ -49,9 +49,10 @@ export const ReviewSpreadView: React.FC<ReviewSpreadViewProps> = ({
     setDetailPage(0);
   };
 
-  // 1. 기간 내 계획 필터링 (선택 기간과 period가 겹치는 계획)
+  // 1. 기간 내 계획 필터링 (선택 기간과 period가 겹치는 유효 계획, trashStatus === 1 제외)
   const filteredPlans = useMemo(() => {
     return packages.filter((pkg) => {
+      if (pkg.trashStatus === 1) return false;
       if (pkg.period) {
         return pkg.period.start <= endDate && pkg.period.end >= startDate;
       }
@@ -60,26 +61,34 @@ export const ReviewSpreadView: React.FC<ReviewSpreadViewProps> = ({
     });
   }, [packages, startDate, endDate]);
 
-  // 모든 할 일 평탄화 및 부모 계획 정보 매핑
+  // 모든 활성 할 일 평탄화 및 부모 계획 정보 매핑 (휴지통 데이터 제외)
   const allTasksWithPlan = useMemo(() => {
-    return packages.flatMap((pkg) =>
-      pkg.tasks.map((task) => ({
-        ...task,
-        planId: pkg.id,
-        planTitle: pkg.title,
-      }))
-    );
+    return packages
+      .filter((pkg) => pkg.trashStatus !== 1)
+      .flatMap((pkg) =>
+        pkg.tasks
+          .filter((task) => task.trashStatus !== 1)
+          .map((task) => ({
+            ...task,
+            planId: pkg.id,
+            planTitle: pkg.title,
+          }))
+      );
   }, [packages]);
 
-  // 모든 실행 기록 평탄화 및 부모 정보 매핑
+  // 모든 활성 실행 기록 평탄화 및 부모 정보 매핑 (휴지통 데이터 제외)
   const allLogsWithPlan = useMemo(() => {
-    return packages.flatMap((pkg) =>
-      pkg.logs.map((log) => ({
-        ...log,
-        planId: pkg.id,
-        planTitle: pkg.title,
-      }))
-    );
+    return packages
+      .filter((pkg) => pkg.trashStatus !== 1)
+      .flatMap((pkg) =>
+        pkg.logs
+          .filter((log) => log.trashStatus !== 1)
+          .map((log) => ({
+            ...log,
+            planId: pkg.id,
+            planTitle: pkg.title,
+          }))
+      );
   }, [packages]);
 
   // 2. 기간 내 완료된 할 일 (선택 기간 내 completedAt이 속하는 현재 done === true 할 일)

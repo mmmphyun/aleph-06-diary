@@ -52,9 +52,10 @@ export const TitlePageView: React.FC<TitlePageViewProps> = ({
     });
   };
 
-  // 날짜별 계획 건수 계산 헬퍼 (방안 B: period 범위 매핑)
+  // 날짜별 계획 건수 계산 헬퍼 (방안 B: period 범위 매핑, 휴지통 데이터 제외)
   const getPlanCountForDate = (dateStr: string): number => {
     return packages.filter((pkg) => {
+      if (pkg.trashStatus === 1) return false;
       if (pkg.period) {
         return pkg.period.start <= dateStr && dateStr <= pkg.period.end;
       }
@@ -119,9 +120,10 @@ export const TitlePageView: React.FC<TitlePageViewProps> = ({
     return days;
   }, [currentYearMonth, packages]);
 
-  // 선택된 날짜에 실행되는 계획 목록 필터링 (무스크롤 보장)
+  // 선택된 날짜에 실행되는 활성 계획 목록 필터링 (무스크롤 보장, 휴지통 제외)
   const filteredPackages = useMemo(() => {
     return packages.filter((pkg) => {
+      if (pkg.trashStatus === 1) return false;
       if (pkg.period) {
         return pkg.period.start <= selectedDate && selectedDate <= pkg.period.end;
       }
@@ -133,8 +135,8 @@ export const TitlePageView: React.FC<TitlePageViewProps> = ({
   const getPackagePageRange = (pkg: PlanPackage, originalIndex: number): string => {
     const contentLines = pkg.content.split('\n').filter(Boolean);
     const planSpreads = Math.max(1, Math.ceil(contentLines.length / 14));
-    const tasksSpreads = pkg.tasksTemplateApplied ? Math.max(1, Math.ceil(Math.max(1, pkg.tasks.length) / 14)) : 1;
-    const hasLogs = pkg.tasks.some((t) => t.done) || pkg.logs.length > 0;
+    const tasksSpreads = pkg.tasksTemplateApplied ? Math.max(1, Math.ceil(Math.max(1, pkg.tasks.filter((t) => t.trashStatus !== 1).length) / 14)) : 1;
+    const hasLogs = pkg.tasks.some((t) => t.done && t.trashStatus !== 1) || pkg.logs.some((l) => l.trashStatus !== 1);
     const logsSpreads = hasLogs ? 1 : 0;
     const totalSpreads = planSpreads + tasksSpreads + logsSpreads;
     const chNum = String(originalIndex + 1).padStart(2, '0');
@@ -150,7 +152,8 @@ export const TitlePageView: React.FC<TitlePageViewProps> = ({
     setIsAddingPlan(false);
   };
 
-  const selectedPkg = packages.find((p) => p.id === currentPackageId) || filteredPackages[0] || packages[0];
+  const activePackages = useMemo(() => packages.filter((p) => p.trashStatus !== 1), [packages]);
+  const selectedPkg = packages.find((p) => p.id === currentPackageId && p.trashStatus !== 1) || filteredPackages[0] || activePackages[0] || packages[0];
   const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
   const weekDayLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -162,12 +165,12 @@ export const TitlePageView: React.FC<TitlePageViewProps> = ({
       {/* ---------------- 1. 상단 시스템 헤더 & 타이틀 ---------------- */}
       <div>
         <div className="flex items-center justify-between pb-2 border-b border-stone-200">
-          <div className="flex items-center gap-1.5 font-mono text-[11px] text-stone-600 uppercase tracking-widest">
+          <div className="flex items-center gap-1.5 font-mono text-[11px] text-stone-600 tracking-normal">
             <BookOpen className="w-3.5 h-3.5 text-stone-700" />
             <span>TABLE OF CONTENTS • LEAF 01</span>
           </div>
           <span className="font-mono text-[10px] text-stone-400">
-            총 {packages.length}개 계획 등록됨
+            총 {activePackages.length}개 계획 등록됨
           </span>
         </div>
 
@@ -175,7 +178,7 @@ export const TitlePageView: React.FC<TitlePageViewProps> = ({
           <h1 className="font-serif text-xl font-bold tracking-tight text-stone-900">
             ALEPH-06 PLAN-DO-SEE
           </h1>
-          <p className="font-mono text-[9px] text-stone-500 tracking-wider uppercase">
+          <p className="font-mono text-[9px] text-stone-500 tracking-normal">
             Workbook Calendar & Chapter Navigator
           </p>
         </div>
@@ -234,7 +237,7 @@ export const TitlePageView: React.FC<TitlePageViewProps> = ({
                 key={slot.dateStr}
                 type="button"
                 onClick={() => setSelectedDate(slot.dateStr)}
-                className={`h-6 rounded flex items-center justify-center relative font-mono text-[11px] transition-all cursor-pointer ${
+                className={`h-6 rounded flex items-center justify-center relative font-mono text-[11px] transition-colors cursor-pointer ${
                   !slot.isCurrentMonth
                     ? 'text-stone-300'
                     : isSelected
@@ -266,7 +269,7 @@ export const TitlePageView: React.FC<TitlePageViewProps> = ({
       {/* ---------------- 3. 선택일 계획 목록 (필터링 기반 무스크롤 보장) ---------------- */}
       <div className="my-1 flex-1 flex flex-col justify-between max-h-[195px] overflow-hidden">
         <div className="flex items-center justify-between pb-1 border-b border-stone-200">
-          <span className="font-mono text-[10px] text-stone-500 uppercase tracking-wider">
+          <span className="font-mono text-[10px] text-stone-500 tracking-normal">
             — {selectedDate} 실행 계획 ({filteredPackages.length}건) —
           </span>
           <span className="font-mono text-[9px] text-stone-400">NO-SCROLL TOC</span>
@@ -292,7 +295,7 @@ export const TitlePageView: React.FC<TitlePageViewProps> = ({
                 <div
                   key={pkg.id}
                   onClick={() => onSelectPackage(pkg.id)}
-                  className={`p-2 rounded-lg border transition-all cursor-pointer group flex flex-col justify-between ${
+                  className={`p-2 rounded-lg border transition-colors cursor-pointer group flex flex-col justify-between ${
                     isSelected
                       ? 'bg-amber-50/90 border-amber-300 shadow-2xs ring-1 ring-amber-200'
                       : 'bg-white/70 hover:bg-stone-50 border-stone-200'
@@ -385,7 +388,7 @@ export const TitlePageView: React.FC<TitlePageViewProps> = ({
           type="button"
           onClick={onTurnPage}
           disabled={disabled || !selectedPkg}
-          className="w-full py-2 px-3 rounded-lg bg-stone-800 hover:bg-stone-900 disabled:bg-stone-400 text-white font-sans text-xs font-medium transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer group active:scale-95"
+          className="w-full py-2 px-3 rounded-lg bg-stone-800 hover:bg-stone-900 disabled:bg-stone-400 text-white font-sans text-xs font-medium transition-colors shadow-sm flex items-center justify-center gap-1.5 cursor-pointer group active:scale-95"
         >
           <span>
             {selectedPkg ? `"${selectedPkg.title}" 계획 펼치기` : '첫 장 넘겨 계획 작성하기'}

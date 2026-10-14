@@ -47,6 +47,7 @@ interface WritingCanvasProps {
   onUpdateLog?: (logId: string, updates: { comment?: string; impediment?: string }) => void;
   onApplyTasksTemplate: () => void;
   onConfirmPlan?: () => void;
+  onTrashPlan?: (pkgId: string) => void;
   onAppendNewPlanPackage?: () => void;
   chapterNumber?: number;
 }
@@ -72,6 +73,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   onUpdateLog,
   onApplyTasksTemplate,
   onConfirmPlan,
+  onTrashPlan,
   onAppendNewPlanPackage,
   chapterNumber = 1,
 }) => {
@@ -100,15 +102,19 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
 
   const { title: planTitle, content: planContent, revisions, tasks, logs, planStatus = 'draft' } = currentPackage;
 
+  // M6: 휴지통 항목(trashStatus === 1) 제외한 활성 할 일 및 실행 일지
+  const activeTasks = useMemo(() => tasks.filter((t) => t.trashStatus !== 1), [tasks]);
+  const activeLogs = useMemo(() => logs.filter((l) => l.trashStatus !== 1), [logs]);
+
   // M3: 4차 결정적 정렬 및 AND 복합 필터가 적용된 할 일 목록 계산
   const processedTasks = useMemo(() => {
-    return queryTasks(tasks, {
+    return queryTasks(activeTasks, {
       searchQuery,
       status: filterStatus,
       priority: filterPriority,
       dueDate: filterDueDate,
     });
-  }, [tasks, searchQuery, filterStatus, filterPriority, filterDueDate]);
+  }, [activeTasks, searchQuery, filterStatus, filterPriority, filterDueDate]);
 
   // 1. 계획 본문 줄 분할 (14줄 단위 스프레드 분할)
   const contentLines = planContent.split('\n').filter(Boolean);
@@ -121,8 +127,8 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   }
 
   // 3. 할 일 템플릿 적용 여부에 따라 백지 속지 또는 다중 할 일 속지 추가 (14개 단위 자동 연장)
-  const isTasksApplied = Boolean(currentPackage.tasksTemplateApplied || tasks.length > 0);
-  const activeTaskList = showFilterBar || searchQuery ? processedTasks : tasks;
+  const isTasksApplied = Boolean(currentPackage.tasksTemplateApplied || activeTasks.length > 0);
+  const activeTaskList = showFilterBar || searchQuery ? processedTasks : activeTasks;
   const tasksSpreadCount = isTasksApplied ? Math.max(1, Math.ceil(Math.max(1, activeTaskList.length) / 14)) : 0;
 
   if (isTasksApplied) {
@@ -134,8 +140,8 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   }
 
   // 4. 할 일이 1개 이상 완료되었거나 실행 로그가 있으면 실행 일지 속지 자동 활성화 (14개 단위 자동 연장)
-  const hasCompletedTasks = tasks.some((t) => t.done) || logs.length > 0;
-  const logsSpreadCount = hasCompletedTasks && isTasksApplied ? Math.max(1, Math.ceil(Math.max(1, logs.length) / 14)) : 0;
+  const hasCompletedTasks = activeTasks.some((t) => t.done) || activeLogs.length > 0;
+  const logsSpreadCount = hasCompletedTasks && isTasksApplied ? Math.max(1, Math.ceil(Math.max(1, activeLogs.length) / 14)) : 0;
 
   if (hasCompletedTasks && isTasksApplied) {
     for (let k = 0; k < logsSpreadCount; k++) {
@@ -249,9 +255,9 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   const tasksLeft = currentTasksChunk.slice(0, 7);
   const tasksRight = currentTasksChunk.slice(7);
 
-  // 한 면당 7개 기준 분할 (현재 실행 일지 스프레드 기준)
+  // 한 면당 7개 기준 분할 (현재 실행 일지 스프레드 기준 - 휴지통 제외)
   const currentLogsChunk =
-    activeSpread.kind === 'logs' ? logs.slice(activeSpread.itemOffset, activeSpread.itemOffset + 14) : [];
+    activeSpread.kind === 'logs' ? activeLogs.slice(activeSpread.itemOffset, activeSpread.itemOffset + 14) : [];
   const logsLeft = currentLogsChunk.slice(0, 7);
   const logsRight = currentLogsChunk.slice(7);
 
@@ -273,6 +279,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
           lineOffset={activeSpread.lineOffset}
           planStatus={planStatus}
           onConfirmPlan={onConfirmPlan}
+          onTrashPlan={onTrashPlan ? () => onTrashPlan(currentPackage.id) : undefined}
           chapterNumber={chapterNumber}
           nextSpreadLabel={
             activeSpread.planIndex < planSpreadCount - 1
@@ -289,7 +296,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
         <>
           {/* 좌측 면 (480×640px) */}
           <div
-            className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4]"
+            className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-stone-200"
             style={{ backgroundColor: 'var(--color-paper)' }}
           >
             <div>
@@ -338,7 +345,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                   <button
                     type="button"
                     onClick={onApplyTasksTemplate}
-                    className="mt-2 px-4 py-2.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-100 font-sans font-medium text-xs transition-all shadow-sm flex items-center gap-2 cursor-pointer active:scale-95"
+                    className="mt-2 px-4 py-2.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-100 font-sans font-medium text-xs transition-colors shadow-sm flex items-center gap-2 cursor-pointer active:scale-95"
                   >
                     <Plus className="w-4 h-4 text-amber-300" />
                     <span>할 일 체크리스트 템플릿 날인</span>
@@ -347,7 +354,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                   <button
                     type="button"
                     onClick={() => onNavigateSpread(safeSpreadIndex - 1)}
-                    className="mt-2 px-4 py-2 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 font-sans font-medium text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                    className="mt-2 px-4 py-2 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 font-sans font-medium text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>이전 장으로 돌아가 계획 확정하기</span>
@@ -403,7 +410,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                 <button
                   type="button"
                   onClick={onAppendNewPlanPackage}
-                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
                   title="다음 새 계획을 바인더 뒤에 결속합니다"
                 >
                   <span>+ 새 계획 바인더에 결속</span>
@@ -420,7 +427,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
         <>
           {/* 좌측 면 (Tasks Left: 480×640px) */}
           <div
-            className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4] relative"
+            className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-stone-200 relative"
             style={{ backgroundColor: 'var(--color-paper)' }}
           >
             <div>
@@ -542,7 +549,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                   체크리스트 ({activeSpread.tasksIndex * 14 + 1}~{Math.min(activeTaskList.length, (activeSpread.tasksIndex + 1) * 14)})
                 </span>
                 <span className="font-mono text-[10px] text-stone-400">
-                  {activeTaskList.length} / {tasks.length} TASKS
+                  {activeTaskList.length} / {activeTasks.length} TASKS
                 </span>
               </div>
 
@@ -834,7 +841,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                 <button
                   type="button"
                   onClick={() => onNavigateSpread(safeSpreadIndex + 1)}
-                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
                 >
                   <span>다음 할 일 속지 보기</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -843,7 +850,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                 <button
                   type="button"
                   onClick={() => onNavigateSpread(safeSpreadIndex + 1)}
-                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
                   title="다음 새로운 속지로 넘어가 실행 일지 확인"
                 >
                   <span>새 장 넘겨 실행 일지</span>
@@ -853,7 +860,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                 <button
                   type="button"
                   onClick={onAppendNewPlanPackage}
-                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
                 >
                   <span>+ 새 계획 바인더에 결속</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -869,13 +876,13 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
           {/* M3: 할 일 작성 / 수정 모달 다이얼로그 */}
           {modalMode && (
             <div
-              className="absolute inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center p-4"
+              className="absolute inset-0 bg-stone-900/40 backdrop-blur-2xs flex items-center justify-center p-4"
               style={{ zIndex: 50 }}
               onClick={() => setModalMode(null)}
             >
               <div
                 className="w-[420px] rounded-xl bg-white border border-stone-200 shadow-xl p-5 space-y-4"
-                style={{ backgroundColor: 'var(--color-paper, #FCFAF7)' }}
+                style={{ backgroundColor: 'var(--color-paper)' }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between pb-2 border-b border-stone-200">
@@ -1032,7 +1039,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
         <>
           {/* 좌측 면 (Logs Left: 480×640px) */}
           <div
-            className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4]"
+            className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-stone-200"
             style={{ backgroundColor: 'var(--color-paper)' }}
           >
             <div>
@@ -1249,7 +1256,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                 <button
                   type="button"
                   onClick={() => onNavigateSpread(safeSpreadIndex + 1)}
-                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
                 >
                   <span>다음 일지 속지 보기</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -1258,7 +1265,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                 <button
                   type="button"
                   onClick={onAppendNewPlanPackage}
-                  className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-100 font-sans font-medium text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                  className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-stone-100 font-sans font-medium text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
                   title="다음 새 계획을 바인더 뒤에 결속합니다"
                 >
                   <span>+ 다음 계획 바인더에 결속</span>

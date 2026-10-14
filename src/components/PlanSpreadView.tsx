@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { TextRevision } from '../types/binder';
-import { ArrowLeft, ArrowRight, Edit3, Check, PenTool, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Edit3, Check, PenTool, Sparkles, Trash2 } from 'lucide-react';
 
 interface PlanSpreadViewProps {
   planTitle: string;
@@ -17,6 +17,7 @@ interface PlanSpreadViewProps {
   nextSpreadLabel?: string;
   planStatus?: 'draft' | 'confirmed';
   onConfirmPlan?: () => void;
+  onTrashPlan?: () => void;
   chapterNumber?: number;
 }
 
@@ -35,6 +36,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
   nextSpreadLabel,
   planStatus = 'draft',
   onConfirmPlan,
+  onTrashPlan,
   chapterNumber = 1,
 }) => {
   // 본문 편집 모드 (양면 무스크롤 2-Pane 에디터) vs 판면 모드 (54px 격줄 렌더러 & 만년필 교정)
@@ -234,7 +236,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
           <span className="line-through text-stone-400 decoration-stone-500 decoration-2">
             {matchedRev.originalText}
           </span>
-          <rt className="text-[12px] font-handwriting text-[#991B1B] -mt-1 leading-none tracking-wide block">
+          <rt className="text-[12px] font-handwriting text-red-800 -mt-1 leading-none tracking-wide block">
             ↳ {matchedRev.correctedText}
           </rt>
         </ruby>
@@ -284,7 +286,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
             }}
             placeholder="수정할 손글씨 문구 입력..."
             autoFocus
-            className="w-full bg-stone-50 border border-stone-300 rounded px-2 py-1.5 font-handwriting text-sm text-[#991B1B] outline-none focus:border-red-400 mb-2"
+            className="w-full bg-stone-50 border border-stone-300 rounded px-2 py-1.5 font-handwriting text-sm text-red-800 focus:outline-none focus:ring-0 focus:border-red-400 mb-2"
           />
           <div className="flex items-center justify-end gap-1.5">
             <button
@@ -300,7 +302,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
             <button
               type="button"
               onClick={handleConfirmRevision}
-              className="px-3 py-1 rounded bg-[#991B1B] hover:bg-red-800 text-white text-xs font-sans font-medium cursor-pointer shadow-xs"
+              className="px-3 py-1 rounded bg-red-800 hover:bg-red-900 text-white text-xs font-sans font-medium cursor-pointer shadow-xs"
             >
               교정 안착
             </button>
@@ -313,7 +315,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
       {/* ========================================================================= */}
       <div
         ref={leftPaneRef}
-        className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4]"
+        className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-stone-200"
         style={{ backgroundColor: 'var(--color-paper)' }}
       >
         <div>
@@ -357,6 +359,16 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
               ) : (
                 <span className="font-sans text-[10px] text-stone-400">만년필 교정 모드</span>
               )}
+              {onTrashPlan && (
+                <button
+                  type="button"
+                  onClick={onTrashPlan}
+                  className="p-1 text-stone-400 hover:text-red-600 transition-colors cursor-pointer"
+                  title="이 계획을 휴지통으로 이동합니다 (연결된 할 일/일지도 함께 보관)"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
               <span className="font-mono text-[11px] text-stone-400">{leftPageStr}</span>
             </div>
           </div>
@@ -384,7 +396,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
                 onChange={handleLeftTextareaChange}
                 rows={7}
                 placeholder="1~7번째 줄을 작성하세요. 7줄을 초과하면 우측 페이지로 커서가 자동 점프합니다."
-                className="w-full h-[378px] bg-transparent font-handwriting text-base text-stone-900 leading-[54px] p-0 outline-none resize-none overflow-hidden scrollbar-none"
+                className="w-full h-[378px] bg-transparent font-handwriting text-base text-stone-900 leading-[54px] p-0 focus:outline-none focus:ring-0 resize-none overflow-hidden scrollbar-none"
               />
             ) : (
               leftLines.map((lineText, idx) => (
@@ -452,7 +464,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
                 onKeyDown={handleRightKeyDown}
                 rows={7}
                 placeholder="8~14번째 줄이 이어집니다. 스크롤바 없이 7줄에 맞춰 정돈됩니다."
-                className="w-full h-[378px] bg-transparent font-handwriting text-base text-stone-900 leading-[54px] p-0 outline-none resize-none overflow-hidden scrollbar-none"
+                className="w-full h-[378px] bg-transparent font-handwriting text-base text-stone-900 leading-[54px] p-0 focus:outline-none focus:ring-0 resize-none overflow-hidden scrollbar-none"
               />
             ) : rightLines.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400">
@@ -498,7 +510,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
           <button
             type="button"
             onClick={onNavigateNextSpread}
-            className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+            className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-900 text-stone-100 font-sans font-medium text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
             title="다음 페이지로 이동"
           >
             <span>{nextSpreadLabel || "새 장 넘겨 할 일 작성"}</span>

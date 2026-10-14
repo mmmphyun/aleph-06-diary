@@ -28,30 +28,30 @@ export const IndexTabs: React.FC<IndexTabsProps> = ({
       label: '기록',
       sublabel: 'Plan-Do-See',
       icon: <Feather className="w-3.5 h-3.5" />,
-      colorClass: 'bg-[#FAF0E6] text-stone-700 hover:bg-[#F5E6D3] border-amber-200/80',
-      activeColorClass: 'bg-[#F2DFCE] text-stone-900 font-bold border-amber-400 shadow-sm translate-x-2',
+      colorClass: 'bg-amber-50 text-stone-700 hover:bg-amber-100/70 border-amber-200/80',
+      activeColorClass: 'bg-amber-100 text-stone-900 font-bold border-amber-400 shadow-sm translate-x-2',
     },
     {
       id: 'review',
       label: '돌아보기',
       sublabel: 'Review',
       icon: <BarChart3 className="w-3.5 h-3.5" />,
-      colorClass: 'bg-[#EBF2F0] text-stone-700 hover:bg-[#DFEBE8] border-teal-200/80',
-      activeColorClass: 'bg-[#D2E4E0] text-stone-900 font-bold border-teal-400 shadow-sm translate-x-2',
+      colorClass: 'bg-teal-50 text-stone-700 hover:bg-teal-100/70 border-teal-200/80',
+      activeColorClass: 'bg-teal-100 text-stone-900 font-bold border-teal-400 shadow-sm translate-x-2',
     },
     {
       id: 'archive',
       label: '보관함',
       sublabel: 'Archive',
       icon: <Archive className="w-3.5 h-3.5" />,
-      colorClass: 'bg-[#F4EFF4] text-stone-700 hover:bg-[#EAE2EA] border-purple-200/80',
-      activeColorClass: 'bg-[#DFD3DF] text-stone-900 font-bold border-purple-400 shadow-sm translate-x-2',
+      colorClass: 'bg-purple-50 text-stone-700 hover:bg-purple-100/70 border-purple-200/80',
+      activeColorClass: 'bg-purple-100 text-stone-900 font-bold border-purple-400 shadow-sm translate-x-2',
     },
   ];
 
   return (
     <aside
-      className={`absolute top-16 flex flex-col gap-3 select-none transition-all duration-300 ${
+      className={`absolute top-16 flex flex-col gap-3 select-none transition-transform duration-300 ${
         peekOnly ? '-right-3 pointer-events-none' : '-right-7'
       }`}
       style={{ zIndex: 22 }}
@@ -66,7 +66,7 @@ export const IndexTabs: React.FC<IndexTabsProps> = ({
             onClick={() => onSelectTab(tab.id)}
             disabled={disabled || peekOnly}
             tabIndex={peekOnly ? -1 : 0}
-            className={`w-28 py-2.5 px-3 rounded-r-lg border-y border-r transition-all duration-200 flex flex-col items-start shadow-2xs ${
+            className={`w-28 py-2.5 px-3 rounded-r-lg border-y border-r transition-transform duration-200 flex flex-col items-start shadow-2xs ${
               isActive && !peekOnly ? tab.activeColorClass : tab.colorClass
             } ${disabled || peekOnly ? 'cursor-default' : 'cursor-pointer group'}`}
             title={peekOnly ? `${tab.label} 섹션 (다이어리 전개 후 이용 가능)` : `${tab.label} 섹션으로 이동`}
@@ -77,7 +77,7 @@ export const IndexTabs: React.FC<IndexTabsProps> = ({
               </span>
               <span>{tab.label}</span>
             </div>
-            <span className="font-mono text-[9px] text-stone-400 mt-0.5 tracking-wider uppercase">
+            <span className="font-mono text-[9px] text-stone-500 mt-0.5 tracking-wider">
               {tab.sublabel}
             </span>
           </button>

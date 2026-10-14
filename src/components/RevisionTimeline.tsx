@@ -169,7 +169,7 @@ export const RevisionTimeline: React.FC<RevisionTimelineProps> = ({
             </h2>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="font-mono text-[10px] text-stone-500 uppercase tracking-wider">
+            <span className="font-mono text-[10px] text-stone-500 tracking-normal">
               TOTAL
             </span>
             <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-stone-100 border border-stone-200 text-stone-700">
@@ -181,7 +181,7 @@ export const RevisionTimeline: React.FC<RevisionTimelineProps> = ({
         {/* 수정 이력 목록 (스크롤바 완전 배제: overflow-hidden + 3D 플립 애니메이션) */}
         <div className="h-[400px] overflow-hidden perspective-1400">
           <div
-            className="h-full flex flex-col justify-between transition-all duration-180 ease-out"
+            className="h-full flex flex-col justify-between transition-transform duration-180 ease-out"
             style={getFlipStyle()}
           >
             {loading && flipState === 'idle' ? (
@@ -241,7 +241,7 @@ export const RevisionTimeline: React.FC<RevisionTimelineProps> = ({
                               <span className="line-through text-stone-400">
                                 {beforeText}
                               </span>
-                              <span className="text-stone-400">→</span>
+                              <span className="text-stone-400 font-mono text-[10px]">대체</span>
                               {/* 변경 후 값: 신규 값 인라인 대조 */}
                               <span className="text-stone-800 font-semibold">
                                 {afterText}
@@ -266,7 +266,7 @@ export const RevisionTimeline: React.FC<RevisionTimelineProps> = ({
             type="button"
             onClick={() => handlePageChange(data.page - 1)}
             disabled={data.page <= 1 || flipState !== 'idle' || loading}
-            className="p-1 rounded border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-600 disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center gap-0.5 active:scale-95"
+            className="p-1 rounded border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-600 disabled:opacity-30 disabled:pointer-events-none transition-colors flex items-center gap-0.5 active:scale-95"
             aria-label="이전 페이지 (책장 넘기기)"
             title="이전 페이지 넘기기"
           >
@@ -282,7 +282,7 @@ export const RevisionTimeline: React.FC<RevisionTimelineProps> = ({
             type="button"
             onClick={() => handlePageChange(data.page + 1)}
             disabled={data.page >= data.totalPages || flipState !== 'idle' || loading}
-            className="p-1 rounded border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-600 disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center gap-0.5 active:scale-95"
+            className="p-1 rounded border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-600 disabled:opacity-30 disabled:pointer-events-none transition-colors flex items-center gap-0.5 active:scale-95"
             aria-label="다음 페이지 (책장 넘기기)"
             title="다음 페이지 넘기기"
           >

@@ -35,16 +35,16 @@ export const PersonalizationToolbar: React.FC = () => {
             setThemeOpen(!themeOpen);
             setFontOpen(false);
           }}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-white/70 hover:bg-white border border-[#E7E5E4] text-[#57534E] shadow-sm backdrop-blur-sm transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-white/70 hover:bg-white border border-stone-200 text-stone-600 shadow-sm backdrop-blur-sm transition-colors"
           title="색상 테마 변경"
         >
-          <Palette className="w-3.5 h-3.5 text-[#57534E]" />
+          <Palette className="w-3.5 h-3.5 text-stone-600" />
           <span>{THEMES[theme].name.split(' (')[0]}</span>
         </button>
 
         {themeOpen && (
-          <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-md border border-[#E7E5E4] shadow-modal z-50 p-1">
-            <div className="px-2 py-1 text-[11px] text-[#A8A29E] font-medium border-b border-[#F5F5F4] mb-1">
+          <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-md border border-stone-200 shadow-modal z-50 p-1">
+            <div className="px-2 py-1 text-[11px] text-stone-400 font-medium border-b border-stone-100 mb-1">
               테마 선택
             </div>
             {(Object.keys(THEMES) as ThemeId[]).map((themeKey) => {
@@ -59,7 +59,7 @@ export const PersonalizationToolbar: React.FC = () => {
                     setThemeOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-2 py-1.5 text-left rounded text-xs transition-colors ${
-                    isSelected ? 'bg-[#F5F5F4] font-semibold text-[#1C1917]' : 'text-[#57534E] hover:bg-[#FAF9F6]'
+                    isSelected ? 'bg-stone-100 font-semibold text-stone-900' : 'text-stone-600 hover:bg-stone-50'
                   }`}
                 >
                   <div className="flex items-center gap-2 truncate">
@@ -69,7 +69,7 @@ export const PersonalizationToolbar: React.FC = () => {
                     />
                     <span className="truncate">{item.name}</span>
                   </div>
-                  {isSelected && <Check className="w-3.5 h-3.5 text-[#1C1917] shrink-0 ml-1" />}
+                  {isSelected && <Check className="w-3.5 h-3.5 text-stone-900 shrink-0 ml-1" />}
                 </button>
               );
             })}
@@ -85,16 +85,16 @@ export const PersonalizationToolbar: React.FC = () => {
             setFontOpen(!fontOpen);
             setThemeOpen(false);
           }}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-white/70 hover:bg-white border border-[#E7E5E4] text-[#57534E] shadow-sm backdrop-blur-sm transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-white/70 hover:bg-white border border-stone-200 text-stone-600 shadow-sm backdrop-blur-sm transition-colors"
           title="손글씨 폰트 변경"
         >
-          <PenTool className="w-3.5 h-3.5 text-[#57534E]" />
+          <PenTool className="w-3.5 h-3.5 text-stone-600" />
           <span>{`펜: ${FONTS[font].name}`}</span>
         </button>
 
         {fontOpen && (
-          <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-md border border-[#E7E5E4] shadow-modal z-50 p-1">
-            <div className="px-2 py-1 text-[11px] text-[#A8A29E] font-medium border-b border-[#F5F5F4] mb-1">
+          <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-md border border-stone-200 shadow-modal z-50 p-1">
+            <div className="px-2 py-1 text-[11px] text-stone-400 font-medium border-b border-stone-100 mb-1">
               손글씨 폰트 선택
             </div>
             {(Object.keys(FONTS) as FontId[]).map((fontKey) => {
@@ -109,13 +109,13 @@ export const PersonalizationToolbar: React.FC = () => {
                     setFontOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-2 py-1.5 text-left rounded text-xs transition-colors ${
-                    isSelected ? 'bg-[#F5F5F4] font-semibold text-[#1C1917]' : 'text-[#57534E] hover:bg-[#FAF9F6]'
+                    isSelected ? 'bg-stone-100 font-semibold text-stone-900' : 'text-stone-600 hover:bg-stone-50'
                   }`}
                 >
                   <span style={{ fontFamily: item.fontFamily }} className="text-sm truncate">
                     {item.name}
                   </span>
-                  {isSelected && <Check className="w-3.5 h-3.5 text-[#1C1917] shrink-0 ml-1" />}
+                  {isSelected && <Check className="w-3.5 h-3.5 text-stone-900 shrink-0 ml-1" />}
                 </button>
               );
             })}

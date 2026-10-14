@@ -6,11 +6,11 @@ import { IndexTabs } from './IndexTabs';
 import { WritingCanvas } from './WritingCanvas';
 import { TitlePageView } from './TitlePageView';
 import { ReviewSpreadView } from './ReviewSpreadView';
+import { ArchiveSpreadView } from './ArchiveSpreadView';
 import { PageCascadeOverlay } from './PageCascadeOverlay';
 import { SingleLeafFlipOverlay } from './SingleLeafFlipOverlay';
 import { SectionTab, PlanPackage, TextRevision } from '../types/binder';
 import { planPackageService } from '../services/planPackageService';
-import { Trash2 } from 'lucide-react';
 
 const TAB_ORDER: Record<SectionTab, number> = {
   writing: 0,
@@ -125,14 +125,17 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     }, 280);
   };
 
-  // 현재 선택된 패키지 객체 추출 및 챕터 번호 계산
+  // 현재 선택된 패키지 객체 추출 및 챕터 번호 계산 (휴지통 계획 배제 폴백)
   const isTransientActive = currentPackageId === 'draft-transient' && transientDraft !== null;
-  const currentPackage: PlanPackage = isTransientActive
-    ? transientDraft
-    : packages.find((p) => p.id === currentPackageId) || packages[0];
+  const activePackages = packages.filter((p) => p.trashStatus !== 1);
+  const matchedPkg = packages.find((p) => p.id === currentPackageId);
+  const resolvedPkg = (matchedPkg && matchedPkg.trashStatus !== 1)
+    ? matchedPkg
+    : (activePackages[0] || packages[0]);
+  const currentPackage: PlanPackage = isTransientActive ? transientDraft : resolvedPkg;
   const chapterNumber = isTransientActive
-    ? packages.length + 1
-    : Math.max(1, packages.findIndex((p) => p.id === currentPackageId) + 1);
+    ? activePackages.length + 1
+    : Math.max(1, activePackages.findIndex((p) => p.id === currentPackageId) + 1);
 
   // 계획 확정 핸들러
   const handleConfirmPlan = () => {
@@ -213,6 +216,64 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   const handleApplyTasksTemplate = () => {
     const pkgId = ensureCommittedPackageId();
     planPackageService.applyTasksTemplate(pkgId);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // M6: 계획 휴지통 이동 핸들러
+  const handleTrashPlan = (pkgId: string) => {
+    planPackageService.trashPlan(pkgId);
+    const updated = planPackageService.loadPackages();
+    setPackages(updated);
+    const active = updated.filter((p) => p.trashStatus !== 1);
+    if (active.length > 0) {
+      setCurrentPackageId(active[0].id);
+    }
+  };
+
+  // M6: 계획 복구 핸들러
+  const handleRestorePlan = (pkgId: string) => {
+    planPackageService.restorePlan(pkgId, 2);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // M6: 계획 영구 삭제 핸들러
+  const handlePurgePlan = (pkgId: string) => {
+    planPackageService.purgePlan(pkgId);
+    const updated = planPackageService.loadPackages();
+    setPackages(updated);
+    const active = updated.filter((p) => p.trashStatus !== 1);
+    if (active.length > 0) {
+      setCurrentPackageId(active[0].id);
+    }
+  };
+
+  // M6: 할 일 복구 핸들러
+  const handleRestoreTask = (pkgId: string, taskId: string) => {
+    planPackageService.restoreTask(pkgId, taskId, 2);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // M6: 할 일 영구 삭제 핸들러
+  const handlePurgeTask = (pkgId: string, taskId: string) => {
+    planPackageService.purgeTask(pkgId, taskId);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // M6: 실행 일지 복구 핸들러
+  const handleRestoreLog = (pkgId: string, logId: string) => {
+    planPackageService.restoreLog(pkgId, logId, 2);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // M6: 실행 일지 영구 삭제 핸들러
+  const handlePurgeLog = (pkgId: string, logId: string) => {
+    planPackageService.purgeLog(pkgId, logId);
+    setPackages(planPackageService.loadPackages());
+  };
+
+  // M6: 만료된 휴지통 항목 일괄 영구 정리 핸들러
+  const handlePurgeExpired = () => {
+    planPackageService.purgeExpiredTrash();
     setPackages(planPackageService.loadPackages());
   };
 
@@ -331,7 +392,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
 
         {/* 우측 480px: 닫힌 다이어리 하드커버 베이스 */}
         <div
-          className={`w-[480px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis relative transition-opacity duration-300 ${
+          className={`w-[480px] h-[640px] rounded-xl border-4 border-stone-800 shadow-chassis relative transition-opacity duration-300 ${
             !isOpen ? 'opacity-100' : 'opacity-0'
           }`}
           style={{
@@ -353,7 +414,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
       {/* [레이어 2: 펼침 상태 양면 바인더 섀시 (960×640px)] 속지 캔버스 */}
       {/* ========================================================================= */}
       <div
-        className={`absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-[#2E2A27] shadow-chassis overflow-visible transition-opacity duration-300 ${
+        className={`absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-stone-800 shadow-chassis overflow-visible transition-opacity duration-300 ${
           !isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
         style={{
@@ -418,6 +479,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
                   onUpdateLog={handleUpdateLog}
                   onApplyTasksTemplate={handleApplyTasksTemplate}
                   onConfirmPlan={handleConfirmPlan}
+                  onTrashPlan={handleTrashPlan}
                   onAppendNewPlanPackage={handleAppendNewPlanPackage}
                   chapterNumber={chapterNumber}
                 />
@@ -440,82 +502,17 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
           )}
 
           {activeTab === 'archive' && (
-            /* [보관함 섹션] 좌 480px 삭제계획 + 우 480px 삭제할일 2면 분할 */
-            <div className="w-full h-full flex">
-              {/* 좌측 480px: 삭제된 계획 보관함 */}
-              <div
-                className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4]"
-                style={{ backgroundColor: 'var(--color-paper)' }}
-              >
-                <div>
-                  <div className="flex items-center justify-between pb-3 border-b border-stone-200">
-                    <div className="flex items-center gap-2">
-                      <Trash2 className="w-4 h-4 text-purple-700" />
-                      <span className="font-mono text-xs font-semibold text-stone-700">ARCHIVE SECTION</span>
-                    </div>
-                    <span className="font-mono text-[11px] text-stone-400">ARCHIVE P.01</span>
-                  </div>
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <div className="font-serif text-2xl text-stone-800">지워진 생각의 보관함</div>
-                      <p className="font-sans text-xs text-stone-500 mt-1 leading-relaxed">
-                        삭제된 계획 카드가 구겨진 음영과 마스킹 테이프로 안전하게 보관되는 휴지통입니다.
-                      </p>
-                    </div>
-                    <div className="p-4 rounded-lg bg-stone-100/80 border border-dashed border-stone-300 space-y-2 opacity-90">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="line-through text-stone-500 font-serif">2026 상반기 취미 플랜</span>
-                        <span className="text-[10px] font-mono text-stone-400">삭제됨</span>
-                      </div>
-                      <button
-                        type="button"
-                        className="text-[11px] text-blue-700 hover:text-blue-900 font-medium cursor-pointer"
-                      >
-                        ↶ 계획 복구
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
-                  <span>ALEPH-06 ARCHIVE</span>
-                  <span>ARCHIVE P.01</span>
-                </div>
-              </div>
-
-              {/* 우측 480px: 삭제된 할 일 목록 */}
-              <div
-                className="w-[480px] h-full p-8 flex flex-col justify-between"
-                style={{ backgroundColor: 'var(--color-paper)' }}
-              >
-                <div>
-                  <div className="flex items-center justify-between pb-3 border-b border-stone-200">
-                    <span className="font-mono text-xs font-semibold text-stone-700">DELETED TASKS</span>
-                    <span className="font-mono text-[11px] text-stone-400">ARCHIVE P.02</span>
-                  </div>
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <div className="font-serif text-2xl text-stone-800">삭제된 할 일 목록</div>
-                      <p className="font-sans text-xs text-stone-500 mt-1 leading-relaxed">
-                        보관된 카드는 7일 동안 보관 후 영구 삭제 처리됩니다.
-                      </p>
-                    </div>
-                    <div className="p-3 rounded bg-white border border-stone-200 flex items-center justify-between shadow-2xs opacity-80">
-                      <span className="text-xs line-through text-stone-500">사용하지 않는 임시 테스트 메모</span>
-                      <button
-                        type="button"
-                        className="text-xs text-stone-400 hover:text-red-600 transition-colors cursor-pointer"
-                      >
-                        영구 삭제
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
-                  <span>ALEPH-06 ARCHIVE</span>
-                  <span>ARCHIVE P.02</span>
-                </div>
-              </div>
-            </div>
+            /* [보관함 섹션] 좌 480px 삭제된 계획 + 우 480px 삭제된 할 일/일지 2면 분할 및 전체 JSON 내보내기 */
+            <ArchiveSpreadView
+              packages={packages}
+              onRestorePlan={handleRestorePlan}
+              onPurgePlan={handlePurgePlan}
+              onRestoreTask={handleRestoreTask}
+              onPurgeTask={handlePurgeTask}
+              onRestoreLog={handleRestoreLog}
+              onPurgeLog={handlePurgeLog}
+              onPurgeExpired={handlePurgeExpired}
+            />
           )}
             </>
           )}

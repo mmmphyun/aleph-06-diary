@@ -17,7 +17,7 @@ export const OpenPadlockIllustration: React.FC<OpenPadlockIllustrationProps> = (
       <LockKeyholeOpen
         size={48}
         strokeWidth={2}
-        className="text-[#D6D3D1] transition-transform duration-300 hover:scale-105"
+        className="text-stone-300 transition-transform duration-300 hover:scale-105"
       />
     </div>
   );

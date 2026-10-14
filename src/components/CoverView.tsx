@@ -56,7 +56,7 @@ export const CoverView: React.FC<CoverViewProps> = ({
     >
       {/* ---------------- 표지 앞면 (Front Cover) ---------------- */}
       <div
-        className="absolute inset-0 w-full h-full rounded-r-xl border-y-4 border-r-4 border-[#2E2A27]/80 flex flex-col items-center justify-between p-8 text-stone-200 backface-hidden shadow-2xl"
+        className="absolute inset-0 w-full h-full rounded-r-xl border-y-4 border-r-4 border-stone-800/80 flex flex-col items-center justify-between p-8 text-stone-200 backface-hidden shadow-2xl"
         style={{
           backgroundColor: 'var(--color-cover)',
           boxShadow: 'inset 4px 0 10px rgba(0,0,0,0.4), 10px 0 25px rgba(0,0,0,0.3)',
@@ -92,7 +92,7 @@ export const CoverView: React.FC<CoverViewProps> = ({
 
       {/* ---------------- 표지 뒷면 (Inside Cover): 180도 회전했을 때 좌측에 보이는 하드커버 안쪽 ---------------- */}
       <div
-        className="absolute inset-0 w-full h-full rounded-l-xl border-y-4 border-l-4 border-[#2E2A27]/80 flex flex-col items-center justify-center p-8 text-stone-300 backface-hidden shadow-inner"
+        className="absolute inset-0 w-full h-full rounded-l-xl border-y-4 border-l-4 border-stone-800/80 flex flex-col items-center justify-center p-8 text-stone-300 backface-hidden shadow-inner"
         style={{
           backgroundColor: 'var(--color-cover)',
           transform: 'rotateY(180deg)',
@@ -134,7 +134,7 @@ export const CoverView: React.FC<CoverViewProps> = ({
                   onChange={handleOwnerNameChange}
                   placeholder="이름을 서명하세요"
                   maxLength={30}
-                  className="w-full bg-transparent px-1 py-1.5 font-handwriting text-2xl text-stone-100 placeholder:text-stone-600 placeholder:font-sans placeholder:text-sm outline-none tracking-wide"
+                  className="w-full bg-transparent px-1 py-1.5 font-handwriting text-2xl text-stone-100 placeholder:text-stone-600 placeholder:font-sans placeholder:text-sm focus:outline-none focus:ring-0 tracking-wide"
                 />
               </div>
               <p className="font-sans text-[11px] text-stone-500 leading-normal">

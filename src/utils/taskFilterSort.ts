@@ -51,6 +51,9 @@ export function queryTasks(
   const query = options.searchQuery?.trim().toLowerCase() || '';
 
   const filtered = tasks.filter((task) => {
+    // 0. 기본 활성 필터: 휴지통 항목(trashStatus === 1) 제외
+    if (task.trashStatus === 1) return false;
+
     // 1. 검색 (제목 + 설명)
     if (query) {
       const matchTitle = task.title.toLowerCase().includes(query);

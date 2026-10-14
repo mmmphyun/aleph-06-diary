@@ -8,7 +8,7 @@ export const DeskMemoSheet: React.FC = () => {
       <div
         className="relative w-[380px] h-[500px] rounded-lg p-8 flex flex-col justify-between border border-stone-200/90 shadow-lg rotate-[-1.2deg] transition-transform hover:rotate-0 duration-300"
         style={{
-          backgroundColor: '#FAF8F5',
+          backgroundColor: 'var(--color-paper)',
           boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.05)',
         }}
       >
@@ -23,8 +23,8 @@ export const DeskMemoSheet: React.FC = () => {
           <div className="flex items-center justify-between pb-3 border-b border-stone-200">
             <div className="flex items-center gap-1.5 text-stone-500">
               <Compass className="w-3.5 h-3.5" />
-              <span className="font-mono text-[10px] tracking-widest uppercase">
-                PHILOSOPHY & ESSENCE
+              <span className="font-mono text-[10px] tracking-wider text-stone-600">
+                Philosophy & Essence
               </span>
             </div>
             <span className="font-mono text-[10px] text-stone-400">

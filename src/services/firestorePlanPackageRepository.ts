@@ -95,6 +95,9 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
           period: pkg.period || null,
           createdAt: pkg.createdAt,
           updatedAt: new Date().toISOString(),
+          trashStatus: pkg.trashStatus ?? 0,
+          trashedAt: pkg.trashedAt ?? null,
+          retentionDays: pkg.retentionDays ?? 7,
         });
 
         // 2. tasks 컬렉션 문서 분해
@@ -114,6 +117,9 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
             status: task.status,
             completedAt: task.completedAt || null,
             createdAt: task.createdAt,
+            trashStatus: task.trashStatus ?? 0,
+            trashedAt: task.trashedAt ?? null,
+            retentionDays: task.retentionDays ?? 7,
           });
         }
 
@@ -130,6 +136,9 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
             endedAt: log.endedAt || null,
             impediment: log.impediment || '',
             comment: log.comment,
+            trashStatus: log.trashStatus ?? 0,
+            trashedAt: log.trashedAt ?? null,
+            retentionDays: log.retentionDays ?? 7,
           });
         }
       }
@@ -193,6 +202,9 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
               status: (t.status as any) || (isDone ? 'done' : 'todo'),
               completedAt: t.completedAt || (isDone ? t.updatedAt || today : null),
               createdAt: t.createdAt || today,
+              trashStatus: (typeof t.trashStatus === 'number' ? t.trashStatus : 0) as 0 | 1 | 2,
+              trashedAt: t.trashedAt || null,
+              retentionDays: t.retentionDays ?? 7,
             };
           });
 
@@ -212,6 +224,9 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
               actualMinutes,
               impediment: l.impediment || '',
               comment: l.comment || '',
+              trashStatus: (typeof l.trashStatus === 'number' ? l.trashStatus : 0) as 0 | 1 | 2,
+              trashedAt: l.trashedAt || null,
+              retentionDays: l.retentionDays ?? 7,
             };
           });
 
@@ -219,7 +234,11 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
           id: p.id,
           title: p.title || '',
           content: p.content || '',
-          revisions: p.revisions || [],
+          revisions: (p.revisions || []).map((r: any) => ({
+            ...r,
+            trashStatus: typeof r.trashStatus === 'number' ? r.trashStatus : 0,
+            trashedAt: r.trashedAt || null,
+          })),
           startPage: p.startPage || 1,
           tasks: planTasks,
           logs: planLogs,
@@ -227,6 +246,9 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
           planStatus: p.planStatus,
           period: p.period || undefined,
           createdAt: p.createdAt || new Date().toISOString().split('T')[0],
+          trashStatus: (typeof p.trashStatus === 'number' ? p.trashStatus : 0) as 0 | 1 | 2,
+          trashedAt: p.trashedAt || null,
+          retentionDays: p.retentionDays ?? 7,
         };
       })
       .sort((a, b) => a.startPage - b.startPage);
@@ -249,6 +271,9 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
         period: pkg.period || null,
         createdAt: pkg.createdAt,
         updatedAt: new Date().toISOString(),
+        trashStatus: pkg.trashStatus ?? 0,
+        trashedAt: pkg.trashedAt ?? null,
+        retentionDays: pkg.retentionDays ?? 7,
       });
 
       // 2. tasks 컬렉션 원자적 저장
@@ -268,6 +293,9 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
           status: task.status,
           completedAt: task.completedAt || null,
           createdAt: task.createdAt,
+          trashStatus: task.trashStatus ?? 0,
+          trashedAt: task.trashedAt ?? null,
+          retentionDays: task.retentionDays ?? 7,
         });
       }
 
@@ -289,6 +317,9 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
           endedAt: log.endedAt || null,
           impediment: log.impediment || '',
           comment: log.comment,
+          trashStatus: log.trashStatus ?? 0,
+          trashedAt: log.trashedAt ?? null,
+          retentionDays: log.retentionDays ?? 7,
         });
       }
 
@@ -474,17 +505,338 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
   }
 
   deleteTask(pkgId: string, taskId: string): PlanPackage {
+    // T06-C13/C36: 단순 삭제는 휴지통 플래그(trashStatus = 1)로 연쇄 이동
+    return this.trashTask(pkgId, taskId);
+  }
+
+  /**
+   * M6: 계획 연쇄 휴지통 이동 (Cascade Trash)
+   * - 해당 계획 및 연결된 할 일 전체, 실행 기록 전체, 리비전 스냅샷을 원자적으로 trashStatus = 1 처리
+   */
+  trashPlan(pkgId: string): PlanPackage[] {
+    const nowKst = getNowKSTIsoString();
+    const target = this.cache.find((p) => p.id === pkgId);
+    if (!target) return this.cache;
+
+    const updatedPkg: PlanPackage = {
+      ...target,
+      trashStatus: 1,
+      trashedAt: nowKst,
+      revisions: target.revisions.map((r) => ({ ...r, trashStatus: 1, trashedAt: nowKst })),
+      tasks: target.tasks.map((t) => ({ ...t, trashStatus: 1, trashedAt: nowKst })),
+      logs: target.logs.map((l) => ({ ...l, trashStatus: 1, trashedAt: nowKst })),
+    };
+
+    this.cache = this.cache.map((p) => (p.id === pkgId ? updatedPkg : p));
+    this.saveToLocal();
+    this.syncPackageToFirestore(updatedPkg);
+    return this.cache;
+  }
+
+  /**
+   * M6: 계획 연쇄 복구 (Cascade Restore)
+   * - 연결 단위 전체를 원자적으로 trashStatus = 2 (또는 사용자 지정 상태) 복구하고 trashedAt = null 초기화
+   */
+  restorePlan(pkgId: string, targetStatus: 0 | 2 = 2): PlanPackage[] {
+    const target = this.cache.find((p) => p.id === pkgId);
+    if (!target) return this.cache;
+
+    const updatedPkg: PlanPackage = {
+      ...target,
+      trashStatus: targetStatus,
+      trashedAt: null,
+      revisions: target.revisions.map((r) => ({ ...r, trashStatus: targetStatus, trashedAt: null })),
+      tasks: target.tasks.map((t) => ({ ...t, trashStatus: targetStatus, trashedAt: null })),
+      logs: target.logs.map((l) => ({ ...l, trashStatus: targetStatus, trashedAt: null })),
+    };
+
+    this.cache = this.cache.map((p) => (p.id === pkgId ? updatedPkg : p));
+    this.saveToLocal();
+    this.syncPackageToFirestore(updatedPkg);
+    return this.cache;
+  }
+
+  /**
+   * M6: 계획 물리 영구 삭제 (Permanent Purge)
+   * - Firestore 및 로컬 캐시에서 해당 계획 및 하위 할 일/실행 기록 문서 완전 삭제
+   */
+  purgePlan(pkgId: string): PlanPackage[] {
+    const target = this.cache.find((p) => p.id === pkgId);
+    if (!target) return this.cache;
+
+    try {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'plans', pkgId));
+      for (const t of target.tasks) {
+        batch.delete(doc(db, 'tasks', t.id));
+      }
+      for (const l of target.logs) {
+        batch.delete(doc(db, 'executionLogs', l.id));
+      }
+      batch.commit().catch((err) => {
+        console.warn(`[FirestorePlanPackageRepository] Firestore 계획 영구 삭제 배치 실패 (${pkgId}):`, err);
+      });
+    } catch (err) {
+      console.warn(`[FirestorePlanPackageRepository] 영구 삭제 오류:`, err);
+    }
+
+    this.cache = this.cache.filter((p) => p.id !== pkgId);
+    this.saveToLocal();
+    return this.cache;
+  }
+
+  /**
+   * M6: 할 일 연쇄 휴지통 이동
+   * - 해당 할 일 및 연결된 실행 기록들을 함께 trashStatus = 1 처리
+   */
+  trashTask(pkgId: string, taskId: string): PlanPackage {
     const target = this.cache.find((p) => p.id === pkgId);
     if (!target) return this.cache[0];
+    const nowKst = getNowKSTIsoString();
+
+    const updatedTasks = target.tasks.map((t) =>
+      t.id === taskId ? { ...t, trashStatus: 1 as const, trashedAt: nowKst } : t
+    );
+    const updatedLogs = target.logs.map((l) =>
+      l.taskId === taskId ? { ...l, trashStatus: 1 as const, trashedAt: nowKst } : l
+    );
+
+    const newPkg: PlanPackage = {
+      ...target,
+      tasks: updatedTasks,
+      logs: updatedLogs,
+    };
+
+    this.cache = this.cache.map((p) => (p.id === pkgId ? newPkg : p));
+    this.saveToLocal();
+    this.syncPackageToFirestore(newPkg);
+    return newPkg;
+  }
+
+  /**
+   * M6: 할 일 및 연결 실행 기록 복구
+   * - 부모 계획이 휴지통이면 부모 계획도 함께 복구
+   */
+  restoreTask(pkgId: string, taskId: string, targetStatus: 0 | 2 = 2): PlanPackage {
+    const target = this.cache.find((p) => p.id === pkgId);
+    if (!target) return this.cache[0];
+
+    const updatedTasks = target.tasks.map((t) =>
+      t.id === taskId ? { ...t, trashStatus: targetStatus, trashedAt: null } : t
+    );
+    const updatedLogs = target.logs.map((l) =>
+      l.taskId === taskId ? { ...l, trashStatus: targetStatus, trashedAt: null } : l
+    );
+
+    // 부모 계획이 휴지통인 경우 부모 계획도 함께 복구하여 고아 상태 방지
+    const shouldRestorePlan = target.trashStatus === 1;
+
+    const newPkg: PlanPackage = {
+      ...target,
+      trashStatus: shouldRestorePlan ? targetStatus : target.trashStatus,
+      trashedAt: shouldRestorePlan ? null : target.trashedAt,
+      tasks: updatedTasks,
+      logs: updatedLogs,
+    };
+
+    this.cache = this.cache.map((p) => (p.id === pkgId ? newPkg : p));
+    this.saveToLocal();
+    this.syncPackageToFirestore(newPkg);
+    return newPkg;
+  }
+
+  /**
+   * M6: 할 일 및 연결 실행 기록 영구 삭제
+   */
+  purgeTask(pkgId: string, taskId: string): PlanPackage {
+    const target = this.cache.find((p) => p.id === pkgId);
+    if (!target) return this.cache[0];
+
+    try {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'tasks', taskId));
+      const relatedLogs = target.logs.filter((l) => l.taskId === taskId);
+      for (const l of relatedLogs) {
+        batch.delete(doc(db, 'executionLogs', l.id));
+      }
+      batch.commit().catch((err) => {
+        console.warn(`[FirestorePlanPackageRepository] 태스크 영구 삭제 배치 실패:`, err);
+      });
+    } catch (err) {
+      console.warn(`[FirestorePlanPackageRepository] 영구 삭제 오류:`, err);
+    }
+
     const newPkg: PlanPackage = {
       ...target,
       tasks: target.tasks.filter((t) => t.id !== taskId),
       logs: target.logs.filter((l) => l.taskId !== taskId),
     };
+
     this.cache = this.cache.map((p) => (p.id === pkgId ? newPkg : p));
     this.saveToLocal();
-    this.syncPackageToFirestore(newPkg, [taskId]);
     return newPkg;
+  }
+
+  /**
+   * M6: 실행 기록 단독 휴지통 이동
+   */
+  trashLog(pkgId: string, logId: string): PlanPackage {
+    const target = this.cache.find((p) => p.id === pkgId);
+    if (!target) return this.cache[0];
+    const nowKst = getNowKSTIsoString();
+
+    const newPkg: PlanPackage = {
+      ...target,
+      logs: target.logs.map((l) =>
+        l.id === logId ? { ...l, trashStatus: 1 as const, trashedAt: nowKst } : l
+      ),
+    };
+
+    this.cache = this.cache.map((p) => (p.id === pkgId ? newPkg : p));
+    this.saveToLocal();
+    this.syncPackageToFirestore(newPkg);
+    return newPkg;
+  }
+
+  /**
+   * M6: 실행 기록 복구 (부모 태스크나 계획이 휴지통인 경우 상위도 함께 복구)
+   */
+  restoreLog(pkgId: string, logId: string, targetStatus: 0 | 2 = 2): PlanPackage {
+    const target = this.cache.find((p) => p.id === pkgId);
+    if (!target) return this.cache[0];
+
+    const targetLog = target.logs.find((l) => l.id === logId);
+    const relatedTaskId = targetLog?.taskId;
+
+    const updatedTasks = target.tasks.map((t) =>
+      t.id === relatedTaskId && t.trashStatus === 1
+        ? { ...t, trashStatus: targetStatus, trashedAt: null }
+        : t
+    );
+
+    const updatedLogs = target.logs.map((l) =>
+      l.id === logId ? { ...l, trashStatus: targetStatus, trashedAt: null } : l
+    );
+
+    const shouldRestorePlan = target.trashStatus === 1;
+
+    const newPkg: PlanPackage = {
+      ...target,
+      trashStatus: shouldRestorePlan ? targetStatus : target.trashStatus,
+      trashedAt: shouldRestorePlan ? null : target.trashedAt,
+      tasks: updatedTasks,
+      logs: updatedLogs,
+    };
+
+    this.cache = this.cache.map((p) => (p.id === pkgId ? newPkg : p));
+    this.saveToLocal();
+    this.syncPackageToFirestore(newPkg);
+    return newPkg;
+  }
+
+  /**
+   * M6: 실행 기록 영구 삭제
+   */
+  purgeLog(pkgId: string, logId: string): PlanPackage {
+    const target = this.cache.find((p) => p.id === pkgId);
+    if (!target) return this.cache[0];
+
+    try {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'executionLogs', logId));
+      batch.commit().catch((err) => {
+        console.warn(`[FirestorePlanPackageRepository] 실행 일지 영구 삭제 실패:`, err);
+      });
+    } catch (err) {
+      console.warn(`[FirestorePlanPackageRepository] 영구 삭제 오류:`, err);
+    }
+
+    const newPkg: PlanPackage = {
+      ...target,
+      logs: target.logs.filter((l) => l.id !== logId),
+    };
+
+    this.cache = this.cache.map((p) => (p.id === pkgId ? newPkg : p));
+    this.saveToLocal();
+    return newPkg;
+  }
+
+  /**
+   * M6: 7일 만료된 휴지통 항목 일괄 영구 삭제
+   */
+  purgeExpiredTrash(): { purgedPlans: string[]; purgedTasks: string[]; purgedLogs: string[] } {
+    const now = Date.now();
+    const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+    const isExpired = (trashedAt?: string | null): boolean => {
+      if (!trashedAt) return false;
+      const t = new Date(trashedAt).getTime();
+      return !isNaN(t) && now - t >= RETENTION_MS;
+    };
+
+    const purgedPlans: string[] = [];
+    const purgedTasks: string[] = [];
+    const purgedLogs: string[] = [];
+
+    const batch = writeBatch(db);
+    let batchHasOperations = false;
+
+    // 1. 만료된 계획 식별
+    const remainingPackages: PlanPackage[] = [];
+
+    for (const pkg of this.cache) {
+      if (pkg.trashStatus === 1 && isExpired(pkg.trashedAt)) {
+        purgedPlans.push(pkg.id);
+        batch.delete(doc(db, 'plans', pkg.id));
+        batchHasOperations = true;
+        for (const t of pkg.tasks) {
+          batch.delete(doc(db, 'tasks', t.id));
+          purgedTasks.push(t.id);
+        }
+        for (const l of pkg.logs) {
+          batch.delete(doc(db, 'executionLogs', l.id));
+          purgedLogs.push(l.id);
+        }
+      } else {
+        // 계획 내부 만료된 태스크 및 로그 필터링
+        const filteredTasks = pkg.tasks.filter((t) => {
+          if (t.trashStatus === 1 && isExpired(t.trashedAt)) {
+            purgedTasks.push(t.id);
+            batch.delete(doc(db, 'tasks', t.id));
+            batchHasOperations = true;
+            return false;
+          }
+          return true;
+        });
+
+        const filteredLogs = pkg.logs.filter((l) => {
+          if (l.trashStatus === 1 && isExpired(l.trashedAt)) {
+            purgedLogs.push(l.id);
+            batch.delete(doc(db, 'executionLogs', l.id));
+            batchHasOperations = true;
+            return false;
+          }
+          return true;
+        });
+
+        remainingPackages.push({
+          ...pkg,
+          tasks: filteredTasks,
+          logs: filteredLogs,
+        });
+      }
+    }
+
+    if (batchHasOperations) {
+      batch.commit().catch((err) => {
+        console.warn('[FirestorePlanPackageRepository] 만료 데이터 배치 삭제 실패:', err);
+      });
+    }
+
+    this.cache = remainingPackages;
+    this.saveToLocal();
+
+    return { purgedPlans, purgedTasks, purgedLogs };
   }
 
   updateLogComment(pkgId: string, logId: string, comment: string): PlanPackage {

@@ -1,6 +1,8 @@
 export type SectionTab = 'writing' | 'review' | 'archive';
 export type WritingSubSection = 'plan' | 'tasks' | 'logs';
 
+export type TrashStatus = 0 | 1 | 2; // 0: 정상 존재, 1: 휴지통 (삭제 대기), 2: 복구됨
+
 export interface TextRevision {
   id: string;
   startIndex: number;
@@ -8,6 +10,8 @@ export interface TextRevision {
   originalText: string;
   correctedText: string;
   createdAt: string;
+  trashStatus?: TrashStatus;
+  trashedAt?: string | null;
 }
 
 export interface PlanPackage {
@@ -25,6 +29,9 @@ export interface PlanPackage {
     end: string; // YYYY-MM-DD
   };
   createdAt: string;
+  trashStatus?: TrashStatus; // 0=존재, 1=휴지통, 2=복구됨
+  trashedAt?: string | null; // 휴지통 진입 시각 (KST ISO 문자열)
+  retentionDays?: number; // 보존 기간 (기본 7일)
 }
 
 export interface PlanDocument {
@@ -56,6 +63,9 @@ export interface TaskItem {
   status: TaskStatus; // 'todo' | 'in_progress' | 'done'
   completedAt?: string | null; // KST ISO 8601 문자열 또는 null
   createdAt: string;
+  trashStatus?: TrashStatus; // 0=존재, 1=휴지통, 2=복구됨
+  trashedAt?: string | null; // 휴지통 진입 시각 (KST ISO 문자열)
+  retentionDays?: number; // 보존 기간 (기본 7일)
 }
 
 export interface TaskInputDto {
@@ -68,6 +78,8 @@ export interface TaskInputDto {
   estimatedMinutes?: number;
   status?: TaskStatus;
   completedAt?: string | null;
+  trashStatus?: TrashStatus;
+  trashedAt?: string | null;
 }
 
 export interface LogItem {
@@ -80,6 +92,9 @@ export interface LogItem {
   actualMinutes?: number; // 런타임 계산된 소요 시간(분)
   impediment?: string; // 막혔던 이유 / 장애 요인
   comment: string; // 성찰 및 한 줄 소회
+  trashStatus?: TrashStatus; // 0=존재, 1=휴지통, 2=복구됨
+  trashedAt?: string | null; // 휴지통 진입 시각 (KST ISO 문자열)
+  retentionDays?: number; // 보존 기간 (기본 7일)
 }
 
 /**
@@ -96,6 +111,8 @@ export interface UpdatePlanPackageDto {
   content?: string;
   planStatus?: 'draft' | 'confirmed';
   tasksTemplateApplied?: boolean;
+  trashStatus?: TrashStatus;
+  trashedAt?: string | null;
 }
 
 export interface IPlanPackageRepository {
@@ -114,4 +131,15 @@ export interface IPlanPackageRepository {
   updateLogComment(pkgId: string, logId: string, comment: string): PlanPackage;
   updateLog(pkgId: string, logId: string, updates: { comment?: string; impediment?: string }): PlanPackage;
   toggleTaskDone(pkgId: string, taskId: string, comment?: string, impediment?: string): { packages: PlanPackage[]; updatedPkg: PlanPackage };
+  // M6: 휴지통 및 영구 삭제 라이프사이클 메서드
+  trashPlan(pkgId: string): PlanPackage[];
+  restorePlan(pkgId: string, targetStatus?: 0 | 2): PlanPackage[];
+  purgePlan(pkgId: string): PlanPackage[];
+  trashTask(pkgId: string, taskId: string): PlanPackage;
+  restoreTask(pkgId: string, taskId: string, targetStatus?: 0 | 2): PlanPackage;
+  purgeTask(pkgId: string, taskId: string): PlanPackage;
+  trashLog(pkgId: string, logId: string): PlanPackage;
+  restoreLog(pkgId: string, logId: string, targetStatus?: 0 | 2): PlanPackage;
+  purgeLog(pkgId: string, logId: string): PlanPackage;
+  purgeExpiredTrash(): { purgedPlans: string[]; purgedTasks: string[]; purgedLogs: string[] };
 }

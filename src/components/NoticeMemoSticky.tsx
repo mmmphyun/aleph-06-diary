@@ -12,7 +12,7 @@ export const NoticeMemoSticky: React.FC<NoticeMemoStickyProps> = ({ onOpen, disa
 
   return (
     <div
-      className="relative w-80 bg-[#FFFDE7] border border-amber-200/60 p-5 rounded-sm shadow-memo transform -rotate-2 transition-all hover:rotate-0 hover:scale-[1.02] duration-200"
+      className="relative w-80 bg-amber-50 border border-amber-200/60 p-5 rounded-sm shadow-memo transform -rotate-2 transition-transform hover:rotate-0 hover:scale-[1.02] duration-200"
       style={{
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)',
       }}
@@ -31,10 +31,10 @@ export const NoticeMemoSticky: React.FC<NoticeMemoStickyProps> = ({ onOpen, disa
           type="button"
           onClick={onOpen}
           disabled={disabled}
-          className="group flex items-center gap-2 px-4 py-2 bg-stone-800 hover:bg-stone-900 active:scale-95 text-stone-100 rounded-md text-xs font-sans font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          className="group flex items-center gap-2 px-4 py-2 bg-stone-800 hover:bg-stone-900 active:scale-95 text-stone-100 rounded-md text-xs font-sans font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
         >
           <BookOpen className="w-3.5 h-3.5 transition-transform group-hover:scale-110" />
-          <span>다이어리 열기 →</span>
+          <span>다이어리 열기</span>
         </button>
       </div>
     </div>

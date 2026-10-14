@@ -174,7 +174,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
           <div className="flex items-start justify-between gap-3 pb-3 border-b border-stone-200">
             <div className="space-y-1.5 flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] tracking-wider uppercase text-stone-500 font-semibold">
+                <span className="font-mono text-[10px] tracking-normal text-stone-500 font-semibold">
                   PLAN VIEW
                 </span>
                 <span
@@ -267,7 +267,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
                             )}
                           </button>
                           <span
-                            className={`truncate transition-all text-base tracking-wide font-handwriting ${
+                            className={`truncate transition-colors text-base tracking-wide font-handwriting ${
                               isChecked ? 'line-through text-stone-400' : 'text-stone-800'
                             }`}
                           >
@@ -317,7 +317,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, onPlanUpdated }) => {
           {/* 상단 편집 헤더 및 액션 버튼 */}
           <div className="flex items-center justify-between pb-2 border-b border-stone-300">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] tracking-wider uppercase text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-semibold">
+              <span className="font-mono text-[10px] tracking-normal text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-semibold">
                 INLINE EDITING
               </span>
               <span className="font-sans text-xs text-stone-500">줄노트 위에서 직접 수정</span>
