@@ -52,6 +52,14 @@
   -moz-osx-font-smoothing: auto;
 }
 
+/* 어른 필기체 1px 미만 획 탈락(자글거림) 방지:
+   paint-order: stroke fill로 글자 내부 음각을 뭉개지 않고 외곽선 0.28px 보강 */
+[data-font='adult'] .font-handwriting,
+.font-handwriting-adult {
+  -webkit-text-stroke: 0.28px currentColor;
+  paint-order: stroke fill;
+}
+
 .transform-style-preserve-3d {
   transform-style: preserve-3d;
   will-change: transform;

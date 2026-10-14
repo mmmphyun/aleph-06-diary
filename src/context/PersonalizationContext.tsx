@@ -80,6 +80,7 @@ export const PersonalizationProvider: React.FC<{ children: React.ReactNode }> = 
     root.style.setProperty('--color-memo-text', selectedTheme.memoText);
     root.style.setProperty('--color-done-badge', selectedTheme.doneBadge);
     root.style.setProperty('--selected-font', selectedFont.fontFamily);
+    root.setAttribute('data-font', font);
   }, [theme, font]);
 
   return (
