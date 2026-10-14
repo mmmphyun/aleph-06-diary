@@ -14,10 +14,11 @@ export const App: React.FC = () => {
     const handleResize = () => {
       const targetWidth = 1000;
       const targetHeight = 760;
-      const scaleX = (window.innerWidth - 16) / targetWidth;
-      const scaleY = (window.innerHeight - 16) / targetHeight;
-      const calculated = Math.min(1, Math.min(scaleX, scaleY));
-      setScale(Math.max(0.35, calculated));
+      const scaleX = (window.innerWidth - 32) / targetWidth;
+      const scaleY = (window.innerHeight - 32) / targetHeight;
+      const calculated = Math.min(scaleX, scaleY);
+      // 작은 화면에서는 0.35까지 축소, 고해상도 큰 화면에서는 1.35까지 자동 확대하여 시인성 확보
+      setScale(Math.max(0.35, Math.min(1.35, calculated)));
     };
 
     handleResize();

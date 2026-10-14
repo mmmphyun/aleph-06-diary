@@ -222,7 +222,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
 
     if (!matchedRev) {
       return (
-        <span className="font-handwriting text-base text-stone-900 leading-normal">
+        <span className="font-handwriting text-[19px] text-stone-900 leading-normal tracking-wide font-medium">
           {lineText}
         </span>
       );
@@ -230,13 +230,13 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
 
     const parts = lineText.split(matchedRev.originalText);
     return (
-      <span className="font-handwriting text-base leading-normal">
+      <span className="font-handwriting text-[19px] leading-normal tracking-wide font-medium">
         <span className="text-stone-900">{parts[0]}</span>
         <ruby className="inline-flex flex-col align-bottom">
           <span className="line-through text-stone-400 decoration-stone-500 decoration-2">
             {matchedRev.originalText}
           </span>
-          <rt className="text-[12px] font-handwriting text-red-800 -mt-1 leading-none tracking-wide block">
+          <rt className="text-[13px] font-handwriting text-red-800 -mt-1 leading-none tracking-wide block font-semibold">
             ↳ {matchedRev.correctedText}
           </rt>
         </ruby>
@@ -321,26 +321,26 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
         <div>
           {/* 상단 섹션 헤더 */}
           <div className="flex items-center justify-between pb-3 border-b border-stone-200">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-semibold text-stone-700">PLAN-DO-SEE</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="font-mono text-xs font-semibold text-stone-700 shrink-0">PLAN-DO-SEE</span>
               {planStatus === 'confirmed' ? (
-                <span className="font-mono text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
-                  ✓ 계획 확정 (교정 모드)
+                <span className="font-mono text-[10px] text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
+                  확정 (교정)
                 </span>
               ) : (
                 <button
                   type="button"
                   onClick={onConfirmPlan}
-                  className="font-mono text-[10px] text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded border border-amber-300 flex items-center gap-1 cursor-pointer transition-colors"
+                  className="font-mono text-[10px] text-amber-900 bg-amber-100 hover:bg-amber-200 px-1.5 py-0.5 rounded border border-amber-300 flex items-center gap-1 cursor-pointer transition-colors shrink-0"
                   title="계획을 확정 날인합니다. 이후 자유 편집은 잠기며 만년필 1회 교정만 가능합니다."
                 >
                   <Sparkles className="w-3 h-3 text-amber-700" />
-                  <span>계획 확정 날인</span>
+                  <span>확정 날인</span>
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              {planStatus === 'draft' ? (
+            <div className="flex items-center gap-2 shrink-0">
+              {planStatus === 'draft' && (
                 <button
                   type="button"
                   onClick={() => {
@@ -356,8 +356,6 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
                   {isEditing ? <Check className="w-3 h-3 text-emerald-600" /> : <Edit3 className="w-3 h-3" />}
                   <span>{isEditing ? '작성 완료' : '본문 편집'}</span>
                 </button>
-              ) : (
-                <span className="font-sans text-[10px] text-stone-400">만년필 교정 모드</span>
               )}
               {onTrashPlan && (
                 <button
@@ -380,7 +378,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
               value={planTitle}
               onChange={(e) => onUpdateTitle(e.target.value)}
               disabled={planStatus === 'confirmed'}
-              className="w-full bg-transparent font-handwriting text-2xl text-stone-900 outline-none disabled:text-stone-700"
+              className="w-full bg-transparent font-handwriting text-2xl text-stone-900 outline-none disabled:text-stone-800 tracking-wide font-medium"
               placeholder="계획의 핵심 제목을 손글씨로 적으세요"
             />
           </div>
@@ -396,7 +394,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
                 onChange={handleLeftTextareaChange}
                 rows={7}
                 placeholder="1~7번째 줄을 작성하세요. 7줄을 초과하면 우측 페이지로 커서가 자동 점프합니다."
-                className="w-full h-[378px] bg-transparent font-handwriting text-base text-stone-900 leading-[54px] p-0 focus:outline-none focus:ring-0 resize-none overflow-hidden scrollbar-none"
+                className="w-full h-[378px] bg-transparent font-handwriting text-[19px] text-stone-900 leading-[54px] p-0 focus:outline-none focus:ring-0 resize-none overflow-hidden scrollbar-none tracking-wide"
               />
             ) : (
               leftLines.map((lineText, idx) => (
@@ -464,7 +462,7 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
                 onKeyDown={handleRightKeyDown}
                 rows={7}
                 placeholder="8~14번째 줄이 이어집니다. 스크롤바 없이 7줄에 맞춰 정돈됩니다."
-                className="w-full h-[378px] bg-transparent font-handwriting text-base text-stone-900 leading-[54px] p-0 focus:outline-none focus:ring-0 resize-none overflow-hidden scrollbar-none"
+                className="w-full h-[378px] bg-transparent font-handwriting text-[19px] text-stone-900 leading-[54px] p-0 focus:outline-none focus:ring-0 resize-none overflow-hidden scrollbar-none tracking-wide"
               />
             ) : rightLines.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 text-stone-400">
