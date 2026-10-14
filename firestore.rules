@@ -1,0 +1,239 @@
+rules_version = '2';
+
+/**
+ * Cloud Firestore Security Rules
+ * Project: pds-diary-t06 (플랜두씨 다이어리 1 / 과제 6)
+ *
+ * Operational Mode:
+ * - Public Web Application without login authentication (T06-C01, T06-C82).
+ * - Read, create, update, and delete are permitted for unauthenticated clients (request.auth == null).
+ * - All other collections are denied by default.
+ * - Schema integrity, data type validation, DoS/resource exhaustion bounds, and immutable key protections are strictly enforced.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: plans
+    // Document ID: {planId} (alphanumeric string, 1-128 chars)
+    // Fields:
+    //   - id: string (required, immutable) - Document ID
+    //   - title: string (required, 1-200 chars) - Plan title
+    //   - content: string (required, 0-50000 chars) - Plain text body
+    //   - revisions: list (optional, max 500 items) - Text correction revisions
+    //   - startPage: int (required, 1-1000) - Binder start page
+    //   - tasksTemplateApplied: bool (optional) - Template applied flag
+    //   - planStatus: string (optional, 'draft' | 'confirmed') - Status
+    //   - period: map or null (optional) - Period with start/end strings
+    //   - createdAt: string (required, immutable, max 50 chars) - ISO timestamp
+    //   - updatedAt: string (optional, max 50 chars) - ISO timestamp
+    //   - trashStatus: int (required, 0 | 1 | 2) - Soft-delete status
+    //   - trashedAt: string or null (optional, max 50 chars) - Trashed timestamp
+    //   - retentionDays: int (optional, 0-365) - Retention days
+    //
+    // Collection: tasks
+    // Document ID: {taskId} (alphanumeric string, 1-128 chars)
+    // Fields:
+    //   - id: string (required, immutable) - Document ID
+    //   - planId: string (required, immutable, 1-128 chars) - Foreign key to plans
+    //   - title: string (required, 1-200 chars) - Task title
+    //   - done: bool (required) - Completion state
+    //   - startDate: string (required, max 50 chars) - Start date (YYYY-MM-DD)
+    //   - dueDate: string (required, max 50 chars) - Due date (YYYY-MM-DD HH:mm)
+    //   - priority: string (required, 'high' | 'medium' | 'low') - Priority
+    //   - description: string (optional, max 5000 chars) - Details
+    //   - tags: list (required, max 50 items) - Tag array
+    //   - estimatedMinutes: int (optional, 0-100000) - Estimated minutes
+    //   - status: string (required, 'todo' | 'in_progress' | 'done') - Status
+    //   - completedAt: string or null (optional, max 50 chars) - ISO timestamp
+    //   - createdAt: string (required, immutable, max 50 chars) - ISO timestamp
+    //   - updatedAt: string or null (optional, max 50 chars) - ISO timestamp
+    //   - trashStatus: int (optional, 0 | 1 | 2) - Soft-delete status
+    //   - trashedAt: string or null (optional, max 50 chars) - Trashed timestamp
+    //   - retentionDays: int (optional, 0-365) - Retention days
+    //
+    // Collection: executionLogs
+    // Document ID: {logId} (alphanumeric string, 1-128 chars)
+    // Fields:
+    //   - id: string (required, immutable) - Document ID
+    //   - planId: string (required, immutable, 1-128 chars) - Foreign key to plans
+    //   - taskId: string (required, immutable, 1-128 chars) - Foreign key to tasks
+    //   - taskTitle: string (required, max 200 chars) - Task title snapshot
+    //   - completedAt: string (required, max 50 chars) - Completion timestamp
+    //   - startedAt: string or null (optional, max 50 chars) - Start timestamp
+    //   - endedAt: string or null (optional, max 50 chars) - End timestamp
+    //   - actualMinutes: int (optional, 0-100000) - Execution minutes
+    //   - impediment: string (optional, max 5000 chars) - Blocker note
+    //   - blockerReason: string (optional, max 5000 chars) - Blocker reason
+    //   - comment: string (required, max 5000 chars) - Reflection note
+    //   - createdAt: string (optional, max 50 chars) - ISO timestamp
+    //   - trashStatus: int (optional, 0 | 1 | 2) - Soft-delete status
+    //   - trashedAt: string or null (optional, max 50 chars) - Trashed timestamp
+    //   - retentionDays: int (optional, 0-365) - Retention days
+    //
+    // ===============================================================
+
+    // ---------------------------------------------------------------
+    // Helper & Validation Functions
+    // ---------------------------------------------------------------
+
+    function isValidPriority(priority) {
+      return priority in ['high', 'medium', 'low'];
+    }
+
+    function isValidTaskStatus(status) {
+      return status in ['todo', 'in_progress', 'done'];
+    }
+
+    function isValidTrashStatus(ts) {
+      return ts in [0, 1, 2];
+    }
+
+    function isValidPeriod(data) {
+      return !('period' in data) ||
+        data.period == null ||
+        (
+          data.period is map &&
+          (!('start' in data.period) || (data.period.start is string && data.period.start.size() <= 50)) &&
+          (!('end' in data.period) || (data.period.end is string && data.period.end.size() <= 50))
+        );
+    }
+
+    function isValidRevisions(data) {
+      return !('revisions' in data) || (
+        data.revisions is list &&
+        data.revisions.size() <= 500
+      );
+    }
+
+    function isValidTags(data) {
+      return !('tags' in data) || (
+        data.tags is list &&
+        data.tags.size() <= 50
+      );
+    }
+
+    // Domain validator for plans
+    function isValidPlan(data, planId) {
+      return data.keys().hasAll(['id', 'title', 'content', 'startPage', 'createdAt', 'trashStatus']) &&
+        data.keys().hasOnly([
+          'id', 'title', 'content', 'revisions', 'startPage',
+          'tasksTemplateApplied', 'planStatus', 'period', 'createdAt',
+          'updatedAt', 'trashStatus', 'trashedAt', 'retentionDays',
+          'priority', 'successCriteria', 'estimatedMinutes', 'revisionCount'
+        ]) &&
+        data.id is string && data.id == planId && data.id.size() <= 128 &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+        data.content is string && data.content.size() <= 50000 &&
+        data.startPage is int && data.startPage >= 1 && data.startPage <= 1000 &&
+        data.createdAt is string && data.createdAt.size() <= 50 &&
+        isValidTrashStatus(data.trashStatus) &&
+        isValidRevisions(data) &&
+        isValidPeriod(data) &&
+        (!('tasksTemplateApplied' in data) || data.tasksTemplateApplied is bool) &&
+        (!('planStatus' in data) || data.planStatus in ['draft', 'confirmed']) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 50)) &&
+        (!('trashedAt' in data) || data.trashedAt == null || (data.trashedAt is string && data.trashedAt.size() <= 50)) &&
+        (!('retentionDays' in data) || (data.retentionDays is int && data.retentionDays >= 0 && data.retentionDays <= 365));
+    }
+
+    // Domain validator for tasks
+    function isValidTask(data, taskId) {
+      return data.keys().hasAll(['id', 'planId', 'title', 'done', 'startDate', 'dueDate', 'priority', 'tags', 'status', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'planId', 'title', 'done', 'startDate',
+          'dueDate', 'priority', 'description', 'tags', 'estimatedMinutes',
+          'status', 'completedAt', 'createdAt', 'updatedAt', 'trashStatus',
+          'trashedAt', 'retentionDays'
+        ]) &&
+        data.id is string && data.id == taskId && data.id.size() <= 128 &&
+        data.planId is string && data.planId.size() > 0 && data.planId.size() <= 128 &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+        data.done is bool &&
+        data.startDate is string && data.startDate.size() <= 50 &&
+        data.dueDate is string && data.dueDate.size() <= 50 &&
+        isValidPriority(data.priority) &&
+        isValidTags(data) &&
+        isValidTaskStatus(data.status) &&
+        data.createdAt is string && data.createdAt.size() <= 50 &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 5000)) &&
+        (!('estimatedMinutes' in data) || (data.estimatedMinutes is int && data.estimatedMinutes >= 0 && data.estimatedMinutes <= 100000)) &&
+        (!('completedAt' in data) || data.completedAt == null || (data.completedAt is string && data.completedAt.size() <= 50)) &&
+        (!('updatedAt' in data) || data.updatedAt == null || (data.updatedAt is string && data.updatedAt.size() <= 50)) &&
+        (!('trashStatus' in data) || isValidTrashStatus(data.trashStatus)) &&
+        (!('trashedAt' in data) || data.trashedAt == null || (data.trashedAt is string && data.trashedAt.size() <= 50)) &&
+        (!('retentionDays' in data) || (data.retentionDays is int && data.retentionDays >= 0 && data.retentionDays <= 365));
+    }
+
+    // Domain validator for executionLogs
+    function isValidExecutionLog(data, logId) {
+      return data.keys().hasAll(['id', 'planId', 'taskId', 'taskTitle', 'completedAt', 'comment']) &&
+        data.keys().hasOnly([
+          'id', 'planId', 'taskId', 'taskTitle', 'completedAt',
+          'startedAt', 'endedAt', 'actualMinutes', 'impediment', 'blockerReason',
+          'comment', 'createdAt', 'trashStatus', 'trashedAt', 'retentionDays'
+        ]) &&
+        data.id is string && data.id == logId && data.id.size() <= 128 &&
+        data.planId is string && data.planId.size() > 0 && data.planId.size() <= 128 &&
+        data.taskId is string && data.taskId.size() > 0 && data.taskId.size() <= 128 &&
+        data.taskTitle is string && data.taskTitle.size() <= 200 &&
+        data.completedAt is string && data.completedAt.size() <= 50 &&
+        data.comment is string && data.comment.size() <= 5000 &&
+        (!('startedAt' in data) || data.startedAt == null || (data.startedAt is string && data.startedAt.size() <= 50)) &&
+        (!('endedAt' in data) || data.endedAt == null || (data.endedAt is string && data.endedAt.size() <= 50)) &&
+        (!('actualMinutes' in data) || (data.actualMinutes is int && data.actualMinutes >= 0 && data.actualMinutes <= 100000)) &&
+        (!('impediment' in data) || (data.impediment is string && data.impediment.size() <= 5000)) &&
+        (!('blockerReason' in data) || (data.blockerReason is string && data.blockerReason.size() <= 5000)) &&
+        (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50)) &&
+        (!('trashStatus' in data) || isValidTrashStatus(data.trashStatus)) &&
+        (!('trashedAt' in data) || data.trashedAt == null || (data.trashedAt is string && data.trashedAt.size() <= 50)) &&
+        (!('retentionDays' in data) || (data.retentionDays is int && data.retentionDays >= 0 && data.retentionDays <= 365));
+    }
+
+    // ---------------------------------------------------------------
+    // Collection Rules
+    // ---------------------------------------------------------------
+
+    // 1. plans 컬렉션
+    match /plans/{planId} {
+      allow read: if true;
+      allow create: if isValidPlan(request.resource.data, planId);
+      allow update: if isValidPlan(request.resource.data, planId) &&
+        request.resource.data.id == resource.data.id &&
+        (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+      allow delete: if true;
+    }
+
+    // 2. tasks 컬렉션
+    match /tasks/{taskId} {
+      allow read: if true;
+      allow create: if isValidTask(request.resource.data, taskId);
+      allow update: if isValidTask(request.resource.data, taskId) &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.planId == resource.data.planId &&
+        (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+      allow delete: if true;
+    }
+
+    // 3. executionLogs 컬렉션
+    match /executionLogs/{logId} {
+      allow read: if true;
+      allow create: if isValidExecutionLog(request.resource.data, logId);
+      allow update: if isValidExecutionLog(request.resource.data, logId) &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.planId == resource.data.planId &&
+        request.resource.data.taskId == resource.data.taskId;
+      allow delete: if true;
+    }
+
+    // ---------------------------------------------------------------
+    // Default Deny Rule: Block all access to undefined collections
+    // ---------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

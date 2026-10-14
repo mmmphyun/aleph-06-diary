@@ -313,4 +313,36 @@ describe('M6: 휴지통·복구·만료와 전체 JSON 내보내기 회귀 테�
       expect(jsonString).not.toContain('secret');
     });
   });
+
+  describe('5. M7 프로덕션 무결성 및 XSS 방어 검증 (T06-C57, T06-C78~C81)', () => {
+    it('XSS 공격 페이로드 문자열이 안전하게 원문 텍스트로 보존된다 (T06-C57)', () => {
+      const xssPayload = '<script>alert("xss")</script><img src=x onerror=alert(1)>';
+      const pkg = firestorePlanPackageRepository.addTask('plan-test-01', {
+        title: xssPayload,
+        description: xssPayload,
+      });
+
+      const addedTask = pkg.tasks.find((t) => t.title === xssPayload);
+      expect(addedTask).toBeDefined();
+      expect(addedTask?.title).toBe(xssPayload);
+      expect(addedTask?.description).toBe(xssPayload);
+
+      // JSON 내보내기 시에도 문자열 그대로 안전하게 이스케이프/보존됨
+      const exported = generateExportData([pkg]);
+      const exportedTask = exported.data.tasks.find((t) => t.id === addedTask?.id);
+      expect(exportedTask?.title).toBe(xssPayload);
+    });
+
+    it('INITIAL_PLAN_PACKAGES는 단일 계획에 5개 이상 할 일과 3개 이상 실행 기록을 만족한다 (T06-C78~C80)', async () => {
+      const { INITIAL_PLAN_PACKAGES } = await import('./initialData');
+      const plan1 = INITIAL_PLAN_PACKAGES.find((p) => p.id === 'plan-01');
+
+      expect(plan1).toBeDefined();
+      expect(plan1!.tasks.length).toBeGreaterThanOrEqual(5);
+      expect(plan1!.logs.length).toBeGreaterThanOrEqual(3);
+
+      const doneTasks = plan1!.tasks.filter((t) => t.status === 'done');
+      expect(doneTasks.length).toBeGreaterThanOrEqual(3);
+    });
+  });
 });

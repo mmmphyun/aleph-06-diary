@@ -11,6 +11,7 @@ HANDOVER.md
 node_modules/
 dist/
 *.tsbuildinfo
+.firebase/
 
 # Design Reference Binaries
 reference/screenshots/*

@@ -15,7 +15,7 @@ import type {
   TextRevision,
   IPlanPackageRepository,
 } from '../types/binder';
-import { INITIAL_PLAN_PACKAGES } from './planPackageService';
+import { INITIAL_PLAN_PACKAGES } from './initialData';
 import {
   getTodayKST,
   getDefaultDueDateKST,
