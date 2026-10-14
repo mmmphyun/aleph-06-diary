@@ -96,6 +96,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
   const [formStatus, setFormStatus] = useState<TaskStatus>('todo');
   const [formDescription, setFormDescription] = useState('');
   const [formTagsStr, setFormTagsStr] = useState('');
+  const [formEstimatedMinutes, setFormEstimatedMinutes] = useState<number>(60);
 
   const { title: planTitle, content: planContent, revisions, tasks, logs, planStatus = 'draft' } = currentPackage;
 
@@ -165,6 +166,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
     setFormStatus('todo');
     setFormDescription('');
     setFormTagsStr('');
+    setFormEstimatedMinutes(60);
     setModalMode('create');
   };
 
@@ -178,6 +180,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
     setFormStatus(task.status);
     setFormDescription(task.description || '');
     setFormTagsStr(task.tags.join(', '));
+    setFormEstimatedMinutes(task.estimatedMinutes ?? 60);
     setModalMode('edit');
   };
 
@@ -200,6 +203,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
         status: formStatus,
         description: formDescription.trim(),
         tags: parsedTags,
+        estimatedMinutes: formEstimatedMinutes,
       });
       setNewTaskInput('');
     } else if (modalMode === 'edit' && selectedTaskForEdit && onUpdateTask) {
@@ -211,6 +215,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
         status: formStatus,
         description: formDescription.trim(),
         tags: parsedTags,
+        estimatedMinutes: formEstimatedMinutes,
       });
     }
 
@@ -231,6 +236,7 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
       status: 'todo',
       description: '',
       tags: [],
+      estimatedMinutes: 60,
     });
     setNewTaskInput('');
   };
@@ -951,6 +957,25 @@ export const WritingCanvas: React.FC<WritingCanvasProps> = ({
                         <option value="done">완료 (done)</option>
                       </select>
                     </div>
+                  </div>
+
+                  {/* 예상 소요 시간 (30분 단위) */}
+                  <div>
+                    <label className="block font-medium text-stone-600 mb-1">
+                      예상 소요 시간 (30분 단위)
+                    </label>
+                    <select
+                      value={formEstimatedMinutes}
+                      onChange={(e) => setFormEstimatedMinutes(Number(e.target.value))}
+                      className="w-full bg-white border border-stone-300 rounded px-2.5 py-1.5 text-xs outline-none"
+                    >
+                      <option value={30}>30분</option>
+                      <option value={60}>1시간 (60분)</option>
+                      <option value={90}>1시간 30분 (90분)</option>
+                      <option value={120}>2시간 (120분)</option>
+                      <option value={180}>3시간 (180분)</option>
+                      <option value={240}>4시간 (240분)</option>
+                    </select>
                   </div>
 
                   {/* 설명 */}

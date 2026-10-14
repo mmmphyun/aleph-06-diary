@@ -72,3 +72,35 @@ export function formatActualMinutes(minutes: number): string {
   return `${remainingMinutes}분`;
 }
 
+/**
+ * ISO 8601 문자열 또는 날짜 문자열을 KST 기준 YYYY-MM-DD 문자열로 변환
+ */
+export function toKSTDateString(dateOrIso?: string | null): string {
+  if (!dateOrIso) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateOrIso)) {
+    return dateOrIso;
+  }
+  try {
+    const d = new Date(dateOrIso);
+    if (isNaN(d.getTime())) {
+      const match = dateOrIso.match(/^(\d{4}-\d{2}-\d{2})/);
+      return match ? match[1] : '';
+    }
+    const kstTime = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    return kstTime.toISOString().split('T')[0];
+  } catch {
+    const match = String(dateOrIso).match(/^(\d{4}-\d{2}-\d{2})/);
+    return match ? match[1] : '';
+  }
+}
+
+/**
+ * 시간 오차(분)를 사용자 친화적 문자열로 포맷팅 (예: +90분 -> "+1시간 30분", -15분 -> "-15분", 0분 -> "±0분")
+ */
+export function formatVarianceMinutes(diffMinutes: number): string {
+  if (diffMinutes === 0) return '±0분';
+  const absMin = Math.abs(diffMinutes);
+  const formatted = formatActualMinutes(absMin);
+  return diffMinutes > 0 ? `+${formatted}` : `-${formatted}`;
+}
+

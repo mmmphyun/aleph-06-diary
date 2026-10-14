@@ -110,6 +110,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
             priority: task.priority,
             description: task.description || '',
             tags: task.tags || [],
+            estimatedMinutes: task.estimatedMinutes ?? 60,
             status: task.status,
             completedAt: task.completedAt || null,
             createdAt: task.createdAt,
@@ -188,6 +189,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
               priority: (t.priority as any) || 'medium',
               description: t.description || '',
               tags: Array.isArray(t.tags) ? t.tags : [],
+              estimatedMinutes: typeof t.estimatedMinutes === 'number' ? t.estimatedMinutes : 60,
               status: (t.status as any) || (isDone ? 'done' : 'todo'),
               completedAt: t.completedAt || (isDone ? t.updatedAt || today : null),
               createdAt: t.createdAt || today,
@@ -262,6 +264,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
           priority: task.priority,
           description: task.description || '',
           tags: task.tags || [],
+          estimatedMinutes: task.estimatedMinutes ?? 60,
           status: task.status,
           completedAt: task.completedAt || null,
           createdAt: task.createdAt,
@@ -401,6 +404,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
     const priority = (typeof input === 'object' && input.priority) || 'medium';
     const description = (typeof input === 'object' && input.description) || '';
     const tags = (typeof input === 'object' && input.tags) || [];
+    const estimatedMinutes = (typeof input === 'object' && typeof input.estimatedMinutes === 'number') ? input.estimatedMinutes : 60;
     const status = (typeof input === 'object' && input.status) || 'todo';
 
     const newTask: TaskItem = {
@@ -412,6 +416,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
       priority,
       description,
       tags,
+      estimatedMinutes,
       status,
       createdAt: today,
     };
@@ -434,6 +439,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
       const nextPriority = updates.priority !== undefined ? updates.priority : t.priority;
       const nextDescription = updates.description !== undefined ? updates.description : t.description;
       const nextTags = updates.tags !== undefined ? updates.tags : t.tags;
+      const nextEstimated = updates.estimatedMinutes !== undefined ? updates.estimatedMinutes : t.estimatedMinutes;
       const nextStatus = updates.status !== undefined ? updates.status : t.status;
       const nextDone = nextStatus === 'done' || (updates.status === undefined && t.done);
       let nextCompletedAt = t.completedAt;
@@ -453,6 +459,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
         priority: nextPriority,
         description: nextDescription,
         tags: nextTags,
+        estimatedMinutes: nextEstimated,
         status: nextStatus,
         done: nextDone,
         completedAt: nextCompletedAt,

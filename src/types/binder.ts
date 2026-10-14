@@ -52,6 +52,7 @@ export interface TaskItem {
   priority: TaskPriority; // 'high' | 'medium' | 'low'
   description?: string; // 선택
   tags: string[]; // 태그 목록
+  estimatedMinutes?: number; // 예상 소요 시간(분) (T06 스키마 규격)
   status: TaskStatus; // 'todo' | 'in_progress' | 'done'
   completedAt?: string | null; // KST ISO 8601 문자열 또는 null
   createdAt: string;
@@ -64,6 +65,7 @@ export interface TaskInputDto {
   priority?: TaskPriority;
   description?: string;
   tags?: string[];
+  estimatedMinutes?: number;
   status?: TaskStatus;
   completedAt?: string | null;
 }

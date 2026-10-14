@@ -5,11 +5,12 @@ import { DeskMemoSheet } from './DeskMemoSheet';
 import { IndexTabs } from './IndexTabs';
 import { WritingCanvas } from './WritingCanvas';
 import { TitlePageView } from './TitlePageView';
+import { ReviewSpreadView } from './ReviewSpreadView';
 import { PageCascadeOverlay } from './PageCascadeOverlay';
 import { SingleLeafFlipOverlay } from './SingleLeafFlipOverlay';
 import { SectionTab, PlanPackage, TextRevision } from '../types/binder';
 import { planPackageService } from '../services/planPackageService';
-import { BarChart3, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 const TAB_ORDER: Record<SectionTab, number> = {
   writing: 0,
@@ -214,16 +215,6 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     planPackageService.applyTasksTemplate(pkgId);
     setPackages(planPackageService.loadPackages());
   };
-
-  // 돌아보기 섹션용 실시간 누적 집계 통계
-  const totalPlansCount = packages.length;
-  const totalTasksCount = packages.reduce((acc, p) => acc + p.tasks.length, 0);
-  const totalDoneTasksCount = packages.reduce(
-    (acc, p) => acc + p.tasks.filter((t) => t.done).length,
-    0
-  );
-  const allLogs = packages.flatMap((p) => p.logs);
-  const totalHours = Math.round(totalDoneTasksCount * 1.5 * 10) / 10;
 
   // 앞표지 오픈: 단 1회 좌측 바닥(Inside Cover)으로 안착 후 영구 고정
   const handleOpenCover = () => {
@@ -433,97 +424,19 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
               )}
 
           {activeTab === 'review' && (
-            /* [돌아보기 섹션] 좌 480px 지표 + 우 480px 대조표 2면 분할 */
-            <div className="w-full h-full flex">
-              {/* 좌측 480px: 4대 핵심 지표 그리드 */}
-              <div
-                className="w-[480px] h-full p-8 flex flex-col justify-between border-r border-[#E7E5E4]"
-                style={{ backgroundColor: 'var(--color-paper)' }}
-              >
-                <div>
-                  <div className="flex items-center justify-between pb-3 border-b border-stone-200">
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-teal-700" />
-                      <span className="font-mono text-xs font-semibold text-stone-700">REVIEW SECTION</span>
-                    </div>
-                    <span className="font-mono text-[11px] text-stone-400">REVIEW P.01</span>
-                  </div>
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <div className="font-serif text-2xl text-stone-800">기록과 실행의 궤적</div>
-                      <p className="font-sans text-xs text-stone-500 mt-1 leading-relaxed">
-                        실행된 기록과 시간 차이를 분석한 4대 핵심 지표입니다.
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 mt-4">
-                      <div className="p-3 bg-stone-100/70 rounded border border-stone-200">
-                        <div className="text-[10px] text-stone-500 font-sans">총 계획 수</div>
-                        <div className="text-2xl font-bold font-mono text-stone-800 mt-1">{totalPlansCount}<span className="text-xs font-normal">건</span></div>
-                      </div>
-                      <div className="p-3 bg-stone-100/70 rounded border border-stone-200">
-                        <div className="text-[10px] text-stone-500 font-sans">완료된 할 일</div>
-                        <div className="text-2xl font-bold font-mono text-emerald-700 mt-1">{totalDoneTasksCount} / {totalTasksCount}<span className="text-xs font-normal">건</span></div>
-                      </div>
-                      <div className="p-3 bg-stone-100/70 rounded border border-stone-200">
-                        <div className="text-[10px] text-stone-500 font-sans">누적 실행 시간</div>
-                        <div className="text-2xl font-bold font-mono text-stone-800 mt-1">{totalHours}<span className="text-xs font-normal">h</span></div>
-                      </div>
-                      <div className="p-3 bg-stone-100/70 rounded border border-stone-200">
-                        <div className="text-[10px] text-stone-500 font-sans">평균 시간 오차</div>
-                        <div className="text-2xl font-bold font-mono text-blue-700 mt-1">±10<span className="text-xs font-normal">분</span></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
-                  <span>ALEPH-06 REVIEW</span>
-                  <span>REVIEW P.01</span>
-                </div>
-              </div>
-
-              {/* 우측 480px: 시간 오차 상세 대조표 */}
-              <div
-                className="w-[480px] h-full p-8 flex flex-col justify-between"
-                style={{ backgroundColor: 'var(--color-paper)' }}
-              >
-                <div>
-                  <div className="flex items-center justify-between pb-3 border-b border-stone-200">
-                    <span className="font-mono text-xs font-semibold text-stone-700">TIME VARIANCE</span>
-                    <span className="font-mono text-[11px] text-stone-400">REVIEW P.02</span>
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    <div className="font-sans text-xs font-bold text-stone-800 pb-2 border-b border-stone-200">
-                      시간 오차 상세 대조표
-                    </div>
-                    <div className="space-y-2 text-xs">
-                      {allLogs.length === 0 ? (
-                        <div className="p-4 text-center text-stone-400 font-sans text-xs">
-                          아직 기록된 실행 일지가 없습니다.
-                        </div>
-                      ) : (
-                        allLogs.slice(0, 5).map((lg, idx) => (
-                          <div
-                            key={lg.id || idx}
-                            className="p-2.5 rounded bg-white border border-stone-200 flex items-center justify-between shadow-2xs"
-                          >
-                            <span className="text-stone-700 truncate max-w-[260px] font-sans">
-                              {lg.taskTitle}
-                            </span>
-                            <span className="font-mono text-emerald-600 font-semibold text-[11px] whitespace-nowrap">
-                              {lg.completedAt ? lg.completedAt.split(' ')[1] || lg.completedAt : '완료'} (정확)
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="pt-2 border-t border-stone-200 flex items-center justify-between text-[10px] font-mono text-stone-400">
-                  <span>ALEPH-06 REVIEW</span>
-                  <span>REVIEW P.02</span>
-                </div>
-              </div>
-            </div>
+            /* [돌아보기 섹션] 달력 기반 4대 지표 집계 및 상세 네비게이션 뷰 */
+            <ReviewSpreadView
+              packages={packages}
+              onSelectPackage={(pkgId) => {
+                handleSelectPackage(pkgId);
+                setActiveTab('writing');
+              }}
+              onNavigateToSection={(pkgId, spreadIndex) => {
+                handleSelectPackage(pkgId);
+                setWritingSpread(spreadIndex);
+                setActiveTab('writing');
+              }}
+            />
           )}
 
           {activeTab === 'archive' && (
