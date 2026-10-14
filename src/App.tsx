@@ -17,8 +17,8 @@ export const App: React.FC = () => {
       const scaleX = (window.innerWidth - 32) / targetWidth;
       const scaleY = (window.innerHeight - 32) / targetHeight;
       const calculated = Math.min(scaleX, scaleY);
-      // 작은 화면에서는 0.35까지 축소, 고해상도 큰 화면에서는 1.35까지 자동 확대하여 시인성 확보
-      setScale(Math.max(0.35, Math.min(1.35, calculated)));
+      // 작은 화면에서는 0.35까지 축소 피팅하고, 데스크탑에서는 1.0(1:1 네이티브 픽셀)으로 텍스트 래스터화 보장
+      setScale(Math.max(0.35, Math.min(1.0, calculated)));
     };
 
     handleResize();

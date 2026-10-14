@@ -423,9 +423,9 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
           zIndex: !hasTurnedTitlePage || isLeafFlipping ? 25 : 20,
         }}
       >
-        {/* 바인더 내부 양면 페이퍼 컨테이너 */}
+        {/* 바인더 내부 양면 페이퍼 컨테이너 (2D 서브픽셀 앤티앨리어싱 유지) */}
         <div
-          className={`relative w-full h-full flex rounded-lg overflow-hidden transform-style-preserve-3d transition-transform duration-250 ${
+          className={`relative w-full h-full flex rounded-lg overflow-hidden transition-transform duration-250 ${
             isCascading ? 'scale-[0.99] opacity-95' : 'scale-100 opacity-100'
           }`}
         >
