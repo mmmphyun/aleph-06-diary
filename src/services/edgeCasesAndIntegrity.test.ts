@@ -10,6 +10,7 @@ import {
   getDefaultDueDateKST,
 } from '../utils/dateUtils';
 import { INITIAL_PLAN_PACKAGES } from './initialData';
+import pdsSchema from '../../contracts/pds-schema-v2.json';
 
 // Node 환경을 위한 LocalStorage 폴리필 설정
 const storageMap = new Map<string, string>();
@@ -365,6 +366,22 @@ describe('엣지케이스 및 데이터 무결성 전수 검증 스위트', () =
       expect(sorted[0].id).toBe('t-10');
       expect(sorted[1].id).toBe('t-50');
       expect(sorted[2].id).toBe('t-99');
+    });
+  });
+
+  describe('7. T07 계약 스키마(contracts/pds-schema-v2.json) 무결성 및 userId 속성 검증 (T07-C91, T07-C102)', () => {
+    it('T07 M0 스키마 버전은 2.2.0이며 모든 주요 컬렉션에 userId 필수 속성이 정의되어 있다', () => {
+      expect(pdsSchema.contract.version).toBe('2.2.0');
+      expect(pdsSchema.contract.assignment).toBe('T07');
+
+      const collections = ['plans', 'planRevisions', 'tasks', 'executionLogs'] as const;
+      for (const col of collections) {
+        const field = (pdsSchema.collections as Record<string, { fields: Record<string, { type: string; required: boolean; immutable?: boolean }> }>)[col]?.fields?.userId;
+        expect(field).toBeDefined();
+        expect(field?.type).toBe('string');
+        expect(field?.required).toBe(true);
+        expect(field?.immutable).toBe(true);
+      }
     });
   });
 });

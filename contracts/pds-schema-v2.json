@@ -1,11 +1,11 @@
 {
   "contract": {
     "name": "Plan-Do-See Diary Firestore Data Contract",
-    "version": "2.1.0",
-    "assignment": "T06",
-    "status": "aligned-with-implementation-plan",
-    "description": "Cloud Firestore collections, document structures, browser SDK direct access rules, and diary operational constraints aligned with implementation-plan.md.",
-    "implementationStatus": "Draft contract updated. Client-side Firestore SDK direct connection on Firebase Hosting without server runtime."
+    "version": "2.2.0",
+    "assignment": "T07",
+    "status": "aligned-with-t07-implementation-plan",
+    "description": "Cloud Firestore collections, document structures, browser SDK direct access rules, and diary operational constraints extended with user authentication (userId) for T07.",
+    "implementationStatus": "Contract updated for T07 Milestone M0. Client-side Firestore SDK direct connection on Firebase Hosting with Firebase Authentication (Email/Password)."
   },
   "platform": {
     "provider": "Firebase",
@@ -84,6 +84,12 @@
       "documentPath": "plans/{planId}",
       "purpose": "Current editable plan document. Plan ID remains immutable across revisions.",
       "fields": {
+        "userId": {
+          "type": "string",
+          "required": true,
+          "immutable": true,
+          "constraints": { "minLength": 1, "description": "Firebase Authentication User UID representing document ownership" }
+        },
         "title": {
           "type": "string",
           "required": true,
@@ -145,6 +151,7 @@
         }
       },
       "invariants": [
+        "userId is immutable and must match the authenticated user UID (request.auth.uid).",
         "periodStart <= periodEnd.",
         "planId never changes upon update.",
         "When plan mutable fields are edited, full snapshot of prior state must be written to planRevisions in the same transaction."
@@ -155,6 +162,12 @@
       "purpose": "Immutable snapshot of plan content immediately before an update.",
       "writePolicy": "Created exclusively inside the Firestore runTransaction that updates the plan document.",
       "fields": {
+        "userId": {
+          "type": "string",
+          "required": true,
+          "immutable": true,
+          "constraints": { "minLength": 1, "description": "Firebase Authentication User UID matching parent plan document" }
+        },
         "planId": {
           "type": "string",
           "required": true,
@@ -187,12 +200,21 @@
           "required": true,
           "default": 0
         }
-      }
+      },
+      "invariants": [
+        "userId is immutable and must match the authenticated user UID (request.auth.uid) and referenced plan.userId."
+      ]
     },
     "tasks": {
       "documentPath": "tasks/{taskId}",
       "purpose": "Task belonging to a plan.",
       "fields": {
+        "userId": {
+          "type": "string",
+          "required": true,
+          "immutable": true,
+          "constraints": { "minLength": 1, "description": "Firebase Authentication User UID matching parent plan and task ownership" }
+        },
         "planId": {
           "type": "string",
           "required": true,
@@ -272,6 +294,7 @@
         }
       },
       "invariants": [
+        "userId is immutable and must match the authenticated user UID (request.auth.uid) and parent plan.userId.",
         "Referenced plan must exist and have trashStatus != 1.",
         "Tasks with trashStatus == 1 are hidden from default active and scheduled lists.",
         "Updating task status to done sets completedAt; reverting to in_progress clears completedAt."
@@ -281,6 +304,12 @@
       "documentPath": "executionLogs/{executionLogId}",
       "purpose": "Append-only record of actual work done. Does not mutate plan or task estimates.",
       "fields": {
+        "userId": {
+          "type": "string",
+          "required": true,
+          "immutable": true,
+          "constraints": { "minLength": 1, "description": "Firebase Authentication User UID matching parent task and plan ownership" }
+        },
         "planId": {
           "type": "string",
           "required": true,
@@ -329,6 +358,7 @@
         }
       },
       "invariants": [
+        "userId is immutable and must match the authenticated user UID (request.auth.uid) and parent task.userId.",
         "Associated task must exist.",
         "Creating an execution log never updates planned values or creates plan revisions."
       ]
@@ -427,20 +457,21 @@
   "export": {
     "fileFormat": "One UTF-8 JSON file",
     "shape": {
-      "contractVersion": "2.1.0",
+      "contractVersion": "2.2.0",
       "exportedAt": "ISO 8601 UTC string ending in Z",
       "data": {
-        "plans": "Array of { id, ...data }",
-        "planRevisions": "Array of { id, ...data }",
-        "tasks": "Array of { id, ...data }",
-        "executionLogs": "Array of { id, ...data }"
+        "plans": "Array of { id, userId, ...data }",
+        "planRevisions": "Array of { id, userId, ...data }",
+        "tasks": "Array of { id, userId, ...data }",
+        "executionLogs": "Array of { id, userId, ...data }"
       }
     },
     "secretsIncluded": false
   },
   "securityAndPrivacy": {
-    "authentication": "None in T06; public read/write per security rules with strict payload schema validation.",
-    "publicWarning": "Mandatory cover notice: '지금은 로그인이 없어 링크를 아는 사람은 누구나 볼 수 있습니다. 남이 봐도 괜찮은 내용만 넣으세요'",
+    "authentication": "Firebase Authentication (Email/Password) SDK v12.19.0. User identity represented by Firebase UID string stored in 'userId' on all root collection documents.",
+    "authorization": "Ownership-based access control enforced via Firestore Security Rules: request.auth != null && resource.data.userId == request.auth.uid.",
+    "publicWarning": "Superseded in T07 by cover authentication gate (closed padlock, email/password form). Legacy public access replaced with strict owner-only Firestore Security Rules.",
     "xssDefense": "All text rendered strictly as text nodes (DOM textContent/React JSX text), avoiding HTML execution."
   }
 }
