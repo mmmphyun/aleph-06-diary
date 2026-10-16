@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SpineDivider } from './SpineDivider';
 import { CoverView } from './CoverView';
 import { DeskMemoSheet } from './DeskMemoSheet';
@@ -11,6 +11,7 @@ import { PageCascadeOverlay } from './PageCascadeOverlay';
 import { SingleLeafFlipOverlay } from './SingleLeafFlipOverlay';
 import { SectionTab, PlanPackage, TextRevision } from '../types/binder';
 import { planPackageService } from '../services/planPackageService';
+import { useAuth } from '../context/AuthContext';
 
 const TAB_ORDER: Record<SectionTab, number> = {
   writing: 0,
@@ -27,8 +28,11 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   onCoverOpenChange,
   onRegisterCloseHandler,
 }) => {
+  const { currentUser, logout } = useAuth();
+
   // 다이어리 개폐 상태: 'closed'(Frame 0 닫힘) | 'opened'(표지 열림 완료 후 바닥 고정)
   const [isOpen, setIsOpen] = useState(false);
+
 
   // 표지 3D 플립 애니메이션 진행 플래그 (450ms 동안 CoverView z-30 유지 후 바닥 z-10 안착)
   const [isCoverFlipping, setIsCoverFlipping] = useState(false);
@@ -277,8 +281,9 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     setPackages(planPackageService.loadPackages());
   };
 
-  // 앞표지 오픈: 단 1회 좌측 바닥(Inside Cover)으로 안착 후 영구 고정
+  // 앞표지 오픈: 인증 성공 시에만 3D 커버 회전 격발 후 속표지(Leaf 01 목차)로 상태 전이
   const handleOpenCover = () => {
+    if (!currentUser) return;
     setIsOpen(true);
     setIsCoverFlipping(true);
     setHasTurnedTitlePage(false);
@@ -304,6 +309,24 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
       setIsCoverFlipping(false);
     }, 450);
   };
+
+  // M1: 로그아웃 및 표지 잠금 복귀 처리 (T07-C95)
+  const handleLogout = async () => {
+    handleCloseCover();
+    try {
+      await logout();
+    } catch {
+      // 세션 정리 에러 방어
+    }
+  };
+
+  // 세션 종료(currentUser null 전이) 시 표지 잠금 화면 자동 강제 복귀
+  useEffect(() => {
+    if (!currentUser && isOpen) {
+      handleCloseCover();
+    }
+  }, [currentUser]);
+
 
   // 속표지(Leaf 01) 넘김 핸들러: 실물 낱장 속지 3D 플립 후 본문 양면 스프레드로 진입
   const handleTurnTitlePage = () => {
@@ -408,21 +431,24 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
         onSelectTab={handleSelectTab}
         disabled={isCascading}
         peekOnly={!isOpen || !hasTurnedTitlePage}
+        onLogout={currentUser ? handleLogout : undefined}
       />
 
       {/* ========================================================================= */}
       {/* [레이어 2: 펼침 상태 양면 바인더 섀시 (960×640px)] 속지 캔버스 */}
+      {/* 비인증 사용자의 속지 렌더링 원천 차단 (T07-C105) */}
       {/* ========================================================================= */}
-      <div
-        className={`absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-stone-800 shadow-chassis overflow-visible transition-opacity duration-300 ${
-          !isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
-        }`}
-        style={{
-          backgroundColor: 'var(--color-cover)',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
-          zIndex: !hasTurnedTitlePage || isLeafFlipping ? 25 : 20,
-        }}
-      >
+      {currentUser && (
+        <div
+          className={`absolute inset-0 w-[960px] h-[640px] rounded-xl border-4 border-stone-800 shadow-chassis overflow-visible transition-opacity duration-300 ${
+            !isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
+          style={{
+            backgroundColor: 'var(--color-cover)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+            zIndex: !hasTurnedTitlePage || isLeafFlipping ? 25 : 20,
+          }}
+        >
         {/* 바인더 내부 양면 페이퍼 컨테이너 (2D 서브픽셀 앤티앨리어싱 유지) */}
         <div
           className={`relative w-full h-full flex rounded-lg overflow-hidden transition-transform duration-250 ${
@@ -518,6 +544,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
           )}
         </div>
       </div>
+      )}
 
       {/* ========================================================================= */}
       {/* [레이어 3: 앞표지 (CoverView)] */}

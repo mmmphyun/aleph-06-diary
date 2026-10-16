@@ -1,12 +1,13 @@
 import React from 'react';
 import { SectionTab } from '../types/binder';
-import { Feather, BarChart3, Archive } from 'lucide-react';
+import { Feather, BarChart3, Archive, LogOut } from 'lucide-react';
 
 interface IndexTabsProps {
   activeTab: SectionTab;
   onSelectTab: (tab: SectionTab) => void;
   disabled?: boolean;
   peekOnly?: boolean;
+  onLogout?: () => void;
 }
 
 export const IndexTabs: React.FC<IndexTabsProps> = ({
@@ -14,6 +15,7 @@ export const IndexTabs: React.FC<IndexTabsProps> = ({
   onSelectTab,
   disabled = false,
   peekOnly = false,
+  onLogout,
 }) => {
   const tabs: Array<{
     id: SectionTab;
@@ -57,6 +59,28 @@ export const IndexTabs: React.FC<IndexTabsProps> = ({
       style={{ zIndex: 22 }}
       aria-label="바인더 대분류 인덱스 탭"
     >
+      {/* M1: 상단 탭 영역 로그아웃 버튼 (T07-C95) */}
+      {onLogout && (
+        <button
+          type="button"
+          onClick={onLogout}
+          disabled={disabled || peekOnly}
+          tabIndex={peekOnly ? -1 : 0}
+          className={`w-28 py-2 px-3 rounded-r-lg border-y border-r transition-all duration-200 flex flex-col items-start shadow-2xs bg-rose-50/90 text-stone-700 hover:bg-rose-100 hover:text-stone-900 border-rose-200/80 ${
+            disabled || peekOnly ? 'cursor-default opacity-50' : 'cursor-pointer group'
+          }`}
+          title={peekOnly ? '로그아웃 (다이어리 전개 후 이용 가능)' : '로그아웃 및 표지 잠금'}
+        >
+          <div className="flex items-center gap-1.5 font-sans text-xs font-semibold">
+            <LogOut className="w-3.5 h-3.5 text-stone-500 group-hover:text-rose-600 transition-colors" />
+            <span>로그아웃</span>
+          </div>
+          <span className="font-mono text-[9px] text-stone-500 mt-0.5 tracking-wider">
+            Lock & Exit
+          </span>
+        </button>
+      )}
+
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
