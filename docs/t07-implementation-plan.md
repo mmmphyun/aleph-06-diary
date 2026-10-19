@@ -172,17 +172,20 @@
 
 ---
 
-### M4 — 세션 무효화, 토큰 수명 주기 관리 및 자격 증명 보안 점검
+### M4 — 세션 무효화, 토큰 수명 주기 관리 및 자격 증명 보안 점검 [완료]
 
 **목적:** 로그인 세션이 안전하게 유지되고 로그아웃 즉시 완전 차단됨을 증명하며, 비밀값 누출을 방지합니다.
 
-**작업:**
-- 로그인 식별자 방식 기술: Firebase ID Token (JWT, RS256 서명, 유효기간 1시간).
-- 동일 엔드포인트/SDK 호출에 대해 로그인 상태의 성공 응답(200 OK)과 로그아웃 직후 동일 토큰/세션의 거절 응답(401/403)을 병렬 대조 기록.
-- 토큰 만료 주기(3600초) 및 자동 갱신, 세션 종료 메커니즘 명시.
-- 토큰이 URL 쿼리 파라미터에 실려 다니지 않는지 브라우저 주소창 및 히스토리 점검.
-- Git 커밋 이력, 프론트엔드 빌드 아티팩트(`dist/`), 공개 화면에 Firebase Private Key 또는 비밀값이 0건임을 정밀 스캔.
-- 모든 문서 및 스크린샷 내 토큰/비밀번호 마스킹(`eyJhb...[생략]`) 적용.
+**검증 테스트 스위트:** [src/services/sessionLifecycle.test.ts](file:///c:/work/aleph-06-diary/src/services/sessionLifecycle.test.ts) (7개 검증 케이스 전수 통과)  
+**보안 점검 증적 보고서:** [docs/t07-token-lifecycle-and-secrets.md](file:///c:/work/aleph-06-diary/docs/t07-token-lifecycle-and-secrets.md)
+
+**작업 및 검증 결과:**
+- 로그인 식별자 방식 기술: Firebase ID Token (JWT, RS256 서명, 유효기간 3,600초) (`TOKEN_LIFECYCLE_SPEC` 명세 및 검증 완료, T07-C109).
+- 동일 엔드포인트/SDK 호출(`plans/plan-alpha-01`)에 대해 로그인 상태의 성공 응답(200 OK)과 로그아웃 직후 동일 토큰/세션의 거절 응답(403 Permission Denied, `firestore.rules` Line 162)을 병렬 대조 기록 완료 (T07-C108).
+- 토큰 만료 주기(3,600초) 및 만료 5분 전(55분 = 3,300초 경과 시점) 백그라운드 자동 갱신, `signOut` 호출 시 IndexedDB(`firebaseLocalStorageDb`) 즉시 소각(0건) 및 `auth.currentUser = null` 동기 전이 검증 완료 (T07-C110, T07-C111).
+- 토큰 및 비밀번호가 URL 쿼리 파라미터나 브라우저 히스토리에 실려 다니지 않음을 정적·동적 검증 완료 (T07-C112).
+- Git 커밋 이력(`git log --all -p`), 프론트엔드 빌드 아티팩트(`dist/`), 전체 소스 코드(`src/`, `docs/`, `contracts/`)에 Firebase Private Key 또는 비밀값이 0건임을 정밀 스캔 완료 (`GIT_LOG_HITS=0 | DIST_HITS=0 | SRC_DOCS_HITS=0`, T07-C113, T07-C114, T07-C46).
+- 모든 문서 및 로그 내 토큰/비밀번호 마스킹 유틸리티(`maskSensitiveToken`: `eyJhb...[생략]`) 적용 및 검증 완료 (T07-C115).
 
 **완료 조건:**
 - 로그인 성공 응답과 로그아웃 후 거절 응답이 동일 조건에서 대조됨.

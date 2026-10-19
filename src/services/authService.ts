@@ -118,6 +118,34 @@ export const getCurrentUser = (): User | null => {
   return auth.currentUser;
 };
 
+/**
+ * M4 (T07-C109, T07-C110, T07-C111): Firebase ID Token 수명 주기 및 저장소 규격 상수
+ */
+export const TOKEN_LIFECYCLE_SPEC = {
+  algorithm: 'RS256',
+  ttlSeconds: 3600,
+  autoRefreshThresholdSeconds: 3300, // 55분 (만료 5분 전 백그라운드 갱신)
+  storageType: 'IndexedDB',
+  storageDbName: 'firebaseLocalStorageDb',
+  issuerPrefix: 'https://securetoken.google.com/',
+} as const;
+
+/**
+ * M4 (T07-C115): 로그, 문서, 화면 출력 시 JWT ID 토큰 및 민감 자격 증명 마스킹 유틸리티
+ * 규격: eyJhb...[생략]
+ */
+export const maskSensitiveToken = (rawToken: string): string => {
+  if (!rawToken || typeof rawToken !== 'string') return '';
+  const trimmed = rawToken.trim();
+  if (trimmed.startsWith('eyJhb')) {
+    return 'eyJhb...[생략]';
+  }
+  if (trimmed.length <= 8) {
+    return '***[생략]';
+  }
+  return `${trimmed.slice(0, 5)}...[생략]`;
+};
+
 export const authService = {
   signIn,
   signUp,
@@ -126,4 +154,7 @@ export const authService = {
   subscribeAuthState,
   getCurrentUser,
   mapAuthError,
+  maskSensitiveToken,
+  TOKEN_LIFECYCLE_SPEC,
 };
+
