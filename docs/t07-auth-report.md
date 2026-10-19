@@ -1,159 +1,250 @@
-# 과제 7 인증 구현 명세 및 5일 관찰 리포트 (M0)
+# 과제 7 인증 구현 설명서 및 마일스톤 M6 종합 보고서
 
-## 1. 인증 솔루션 개요 (무엇으로 붙였나)
+- **문서 버전:** 1.0.0
+- **작성 일시:** 2026-10-19T14:18:00+09:00
+- **프로젝트 명:** 플랜두씨 다이어리 (PDS Diary)
+- **배포 호스팅 URL:** https://pds-diary-t06.web.app
+- **최종 커밋 해시 (Full SHA):** `[FULL_COMMIT_SHA_PLACEHOLDER]`
+- **연결 마일스톤:** T07-M6 (인증 구현 설명서 6개 항목 종합 및 최종 제출 패키징)
+- **연결 검증 기준:** T07-C01, T07-C03, T07-C39, T07-C40, T07-C127, T07-C128, T07-C129, T07-C130, T07-C131
 
-- 채택 솔루션: `Firebase Authentication (Email/Password)`
-- 클라이언트 SDK: `@firebase/auth` (Firebase Web Modular SDK v12.19.0)
-- 인프라 환경: Cloud Firestore (`pds-diary-t06`), Firebase Hosting
-- 토큰 연동: Cloud Firestore 보안 규칙 내부 `request.auth` 컨텍스트 직결
+---
 
-## 2. 기술 선정 사유 및 대안 비교 (왜 그걸 골랐나)
+## [필수 제출 단축 양식]
 
-### 2.1 채택 사유 (Firebase Authentication)
+### 1. 짧은 확인 방법 4줄 (T07-C39)
+1. **어디로 가나요**: 웹 브라우저(시크릿 창 권장)에서 프로덕션 배포 주소 [https://pds-diary-t06.web.app](https://pds-diary-t06.web.app) 에 접속합니다.
+2. **세 단계 안에 무엇을 하나요**: 
+   - 1단계: 첫 화면 닫힌 바인더 잠금쇠 표지에서 [회원가입] 탭을 누르고 이메일/비밀번호(6자 이상)를 입력하여 가입합니다.
+   - 2단계: 자동 로그인과 동시에 3D 표지 회전 애니메이션이 격발되며 다이어리 본문(Leaf 01 목차)으로 진입합니다.
+   - 3단계: 상단 탭에서 [플랜(Plan)] 또는 [보관함(Archive)]을 눌러 본인 고유의 계획 패키지를 작성·조회하고 [로그아웃]을 수행합니다.
+3. **무엇이 보이면 통과인가요**: 
+   - 로그인 직후 본인 소유의 5일 관찰 실데이터와 지표(15건 계획, 11건 완료, 73.3% 완료율)가 정상 노출되고, 타인 계정이나 미인증 상태에서는 잠금 표지 차단 및 Firestore 403 Permission Denied가 발생하여 데이터 유출이 0건이면 통과입니다.
+4. **안 될 때는 무엇이 보이나요**: 
+   - 미인증 또는 로그아웃 상태에서 직접 Firestore 컬렉션 조회를 시도하거나 잘못된 자격 증명을 입력하면 콘솔에 `FirebaseError: [code=permission-denied]: Missing or insufficient permissions. (403 Forbidden)` 또는 화면에 `아이디 또는 비밀번호가 올바르지 않습니다` 단일 보안 에러 메시지가 표시됩니다.
 
-- **인프라 네이티브 토큰 검증**:
-  - Cloud Firestore와 동일한 Google Identity Platform 기반으로 동작합니다.
-  - 클라이언트가 별도 인증 프록시 없이 Firestore 엔진에 직접 보안 토큰(`request.auth`)을 전달합니다.
-- **무서버(Serverless) 보안 경계 확보**:
-  - 독립된 인증 백엔드 서버를 직접 호스팅하지 않습니다.
-  - 비밀키(Private Key) 노출 및 서버 침해 사고 위험을 원천 차단합니다.
-- **클라이언트 자격 증명 격리**:
-  - 브라우저 `IndexedDB`의 격리된 네임스페이스(`firebaseLocalStorageDb`)에 인증 상태를 저장합니다.
-  - 평문 비밀번호를 브라우저 스토리지에 남기지 않습니다.
+---
 
-### 2.2 검토 후 기각된 대안 비교
+### 2. AI와 내 판단 3줄 (T07-C40)
+1. **AI에게 맡긴 일**: 
+   - Firebase Auth Modular SDK(v12.19.0) 기반의 `authService.ts` 골격 생성, IDOR 교차 침투 단위 테스트 12종 및 세션 수명 주기 테스트 7종의 자동화 스위트 코드 구현.
+2. **내가 직접 판단한 일**: 
+   - UI 조건문 숨김에 의존하지 않고 Firestore Security Rules(`firestore.rules`)의 `request.auth.uid == resource.data.userId` 서버 엔진 레벨 강제 원칙을 확립하고, 과제 6의 단일 플랜·하위 계층 데이터 연속성을 해치지 않도록 5일 관찰 수기 계산치(15건/11건, 73.3%) 오차 0 검증 기준을 직접 설계·결정함.
+3. **AI 말을 따르지 않은 일**: 
+   - AI가 초기에 제안한 "빠른 구현을 위한 로컬 스토리지 기반 간이 토큰 검증 및 보안 규칙 전면 개방(`allow read, write: if true;` 유지)" 방안을 단호히 거절하고, 프로덕션 환경의 `IndexedDB` 격리 네임스페이스(`firebaseLocalStorageDb`) 사용과 RS256 JWT ID 토큰(TTL 3,600초) 수명 주기 기반의 완전 격리 보안 규칙 체계를 강제 채택함.
 
-| 비교 항목 | 채택안: Firebase Auth | 대안 A: 자체 Node.js JWT 서버 | 대안 B: Supabase Auth / Auth0 |
+---
+
+## [인증 구현 설명서 6대 필수 섹션] (T07-C127)
+
+### ① 무엇으로 붙였나 (솔루션 및 토큰 명세)
+- **채택 솔루션명**: `Firebase Authentication (Email/Password)`
+- **클라이언트 라이브러리 및 SDK 버전**: `@firebase/auth` (Firebase Modular SDK `v12.19.0`)
+- **인프라 환경**: Google Cloud Platform / Firebase Serverless Framework (`pds-diary-t06`), Firebase Hosting
+- **토큰 규격 및 명세**:
+  - **포맷**: RFC 7519 JSON Web Token (JWT)
+  - **암호화 서명 알고리즘**: `RS256` (비대칭 공개키 서명, Google Identity Platform 관리)
+  - **토큰 유효기간 (TTL)**: 발급 시점으로부터 정확히 **3,600초 (1시간)**
+  - **자동 갱신 임계치**: 만료 5분 전(3,300초 = 55분 경과 시점) 비동기 백그라운드 루프에서 자동 갱신
+  - **저장소 격리**: 브라우저 `IndexedDB` 전용 네임스페이스 (`firebaseLocalStorageDb`)에 암호화 보관 (URL 쿼리 파라미터, 브라우저 히스토리, `localStorage` 노출 0건)
+  - **서버 검증 연동**: Cloud Firestore 백엔드 RPC 엔진의 `request.auth` 컨텍스트 직결
+
+---
+
+### ② 왜 그걸 골랐나 (선정 사유 및 배제 대안 비교)
+#### 2.1 선정 사유
+1. **Firestore Security Rules 네이티브 `request.auth` 직결 바인딩**:
+   - 별도의 인증 프록시 서버나 커스텀 토큰 변환 레이어 없이, 클라이언트 SDK가 전송한 RS256 JWT의 서명과 만료 여부를 Firestore 분산 저장 엔진이 네이티브로 직접 검증합니다.
+2. **무상태(Stateless) 토큰 검증 및 서버리스 완전 관리형 보안**:
+   - 인증 검증 서버를 직접 구축하거나 운영 인스턴스를 유지할 필요가 없어 세션 탈취 및 단일 장애점(SPOF) 위험이 없습니다.
+3. **Google의 검증된 Modified `scrypt` 단방향 비밀번호 해싱**:
+   - CPU/메모리 비용 파라미터($N=16,384$, $r=8$, $p=1$)와 CSPRNG 고유 솔트, 인프라 서명자 키(Signer Key)를 결합하여 레인보우 테이블 및 GPU/ASIC 무차별 대입 공격을 수학적으로 무력화합니다.
+
+#### 2.2 배제된 대안 2건 및 탈락 이유
+| 비교 항목 | 채택안: Firebase Authentication | 탈락 대안 1: 자체 Node.js JWT 서버 | 탈락 대안 2: Supabase Auth / Auth0 |
 | :--- | :--- | :--- | :--- |
-| **운영 인프라** | 서버리스 완전 관리형 | 별도 Node.js/Express 인스턴스 필요 | 타사 클라우드 인프라 종속 |
-| **토큰 검증** | Firestore 엔진 내장 검증 | Firestore 연동 시 Custom Token 재발급 필요 | 외부 JWT 검증에 따른 추가 지연 발생 |
-| **시크릿 키 관리** | 구글 인프라 내부 격리 | 서버 호스트 내 서명 비밀키 직접 보관 | 외부 대시보드 API Key 의존 |
-| **추가 비용** | 기존 Firebase 인프라 무료 한도 내 사용 | 서버 호스팅(Compute) 비용 상시 발생 | 별도 유료 플랜 및 트래픽 요금 발생 |
-| **기각 사유** | - | 비밀키 유출 위험 및 단일 장애점(SPOF) 우려 | 이종 클라우드 분산으로 통신 지연 가중 |
+| **운영 인프라** | 완전 관리형 서버리스 | 별도 Node.js/Express 인스턴스 호스팅 | 이종 클라우드 인프라 종속 |
+| **토큰 검증** | Firestore 엔진 내장 검증 | Firestore 연동 시 Custom Token 재발급 필요 | 외부 JWT 서명키 검증으로 인한 추가 지연 |
+| **시크릿 키 관리** | 구글 인프라 내부 격리 | 서버 호스트 파일/환경변수에 개인키 직접 보관 | 외부 콘솔 API Key 의존 |
+| **추가 비용** | 기존 Firebase Spark(무료) 한도 내 수용 | VM/컨테이너 호스팅 상시 비용 발생 | 별도 유료 티어 및 MAU 초과 과금 위험 |
+| **탈락 이유** | **최종 채택** | **서버 호스트 침해 시 서명 비밀키 유출 위험** 및 인프라 운영 오버헤드 과다로 기각 | Firestore와의 이종 클라우드 네트워크 왕복 지연(Latency) 증가 및 불필요한 결합도로 기각 |
 
-## 3. 비밀번호 암호화 알고리즘 및 솔트 메커니즘 명세
+---
 
-- **암호화 알고리즘**: Modified `scrypt` (구글 고유 메모리 집약적 단방향 해시 함수)
-- **알고리즘 동작 파라미터**:
-  - `CPU/메모리 비용 파라미터 (Cost Parameter, N)`: $2^{14} = 16,384$
-  - `블록 크기 파라미터 (Block Size, r)`: 8
-  - `병렬화 파라미터 (Parallelization, p)`: 1
-- **솔트(Salt) 정책**:
-  - 각 사용자 계정 등록 시 암호학적으로 안전한 난수 생성기(CSPRNG)를 통해 고유 솔트를 생성합니다.
-  - 레인보우 테이블(Rainbow Table) 사전 공격을 수학적으로 무력화합니다.
-- **서버 서명자 키(Signer Key) 결합**:
-  - 사용자별 고유 솔트 외에 Google Identity Platform 인프라 비밀 서명 키를 결합합니다.
-  - 데이터베이스 덤프가 탈취되더라도 오프라인 전수 조사 공격을 차단합니다.
-- **클라이언트 평문 비밀번호 수명 주기**:
-  - 브라우저는 사용자가 입력한 비밀번호를 HTTPS(TLS 1.3) 암호화 터널을 통해 Google Identity Toolkit 엔드포인트로 직접 송신합니다.
-  - 송신 직후 브라우저 힙 메모리 변수는 가비지 컬렉터의 수거 대상이 됩니다.
-  - `localStorage`, `sessionStorage`, 쿠키, 애플리케이션 로그 어디에도 평문 비밀번호를 기록하지 않습니다.
+### ③ 어디를 어떻게 고쳤나 (4대 흐름 파일 및 함수 1:1 매핑)
 
-## 4. 세션 및 토큰 수명 주기 관리 명세
+가입, 로그인, 로그아웃, 자료 조회의 4대 흐름이 통과하는 프론트엔드/백엔드 핵심 소스 파일과 함수는 다음과 같이 1:1로 결합되어 있습니다.
 
-### 4.1 토큰 계층 구조 (OAuth 2.0 / OIDC 기반)
+| 사용자 흐름 | 통과하는 핵심 소스 파일 경로 | 핵심 함수 / 메서드 | 수행 역할 및 보안 처리 메커니즘 |
+| :--- | :--- | :--- | :--- |
+| **1. 회원가입** | [src/services/authService.ts](file:///c:/work/aleph-06-diary/src/services/authService.ts) | `signUp(email, password)` | 이메일 트림, 6자 이상 비밀번호 검증 후 `createUserWithEmailAndPassword` 호출, `mapAuthError`로 중복 가입 에러 정규화 |
+| | [src/context/AuthContext.tsx](file:///c:/work/aleph-06-diary/src/context/AuthContext.tsx) | `register(email, password)` | 리액트 상태 동기화 및 `authError` 클리어 |
+| | [src/components/CoverView.tsx](file:///c:/work/aleph-06-diary/src/components/CoverView.tsx) | `handleSubmit(e)` | 회원가입 폼 제출 이벤트 핸들링, 입력 필드 검증 및 3D 표지 회전 애니메이션 연동 |
+| **2. 로그인** | [src/services/authService.ts](file:///c:/work/aleph-06-diary/src/services/authService.ts) | `signIn(email, password)` | `signInWithEmailAndPassword` 호출, 계정 열거 방어(`mapAuthError`: `auth/invalid-credential` 통합) |
+| | [src/context/AuthContext.tsx](file:///c:/work/aleph-06-diary/src/context/AuthContext.tsx) | `login(email, password)` | 로그인 세션 수립 및 `currentUser` 전역 상태 전이 |
+| | [src/components/CoverView.tsx](file:///c:/work/aleph-06-diary/src/components/CoverView.tsx) | `handleSubmit(e)` | 패스워드 평문 즉시 메모리 소거(`setPassword('')`), 다이어리 언락(`onOpen`) |
+| **3. 로그아웃** | [src/services/authService.ts](file:///c:/work/aleph-06-diary/src/services/authService.ts) | `signOut()` | `firebaseSignOut(auth)` 호출, IndexedDB 토큰 즉시 영구 파기 |
+| | [src/context/AuthContext.tsx](file:///c:/work/aleph-06-diary/src/context/AuthContext.tsx) | `logout()` | `currentUser`를 즉시 `null`로 전환하여 전역 인가 컨텍스트 닫음 |
+| | [src/components/CoverView.tsx](file:///c:/work/aleph-06-diary/src/components/CoverView.tsx) | `handleLogout()` | 다이어리 닫힘 상태 전환 및 첫 화면 닫힌 잠금쇠 표지로 복귀 |
+| **4. 자료 조회** | [src/services/firestorePlanPackageRepository.ts](file:///c:/work/aleph-06-diary/src/services/firestorePlanPackageRepository.ts) | `refreshFromFirestore()` | `query(collection(db, 'plans'), where('userId', '==', uid))` 쿼리를 통해 본인 UID 문서만 안전 인출 |
+| | [src/services/firestorePlanPackageRepository.ts](file:///c:/work/aleph-06-diary/src/services/firestorePlanPackageRepository.ts) | `executeAtomicTaskStatusTransition()` | 트랜잭션 내부에서 `taskData.userId !== currentUser.uid` 2차 소유권 방어선 강제 검증 |
+| | [firestore.rules](file:///c:/work/aleph-06-diary/firestore.rules) | `Line 162, 176, 191` (`allow read, delete`) | `request.auth != null && resource.data.userId == request.auth.uid` 서버 엔진 인가 강제 |
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as 사용자 (브라우저)
-    participant SDK as Firebase Auth SDK
-    participant IDP as Google Identity Toolkit
-    participant FS as Cloud Firestore
+---
 
-    User->>SDK: 이메일 / 비밀번호 입력
-    SDK->>IDP: HTTPS(TLS 1.3) 자격 증명 전송
-    IDP-->>SDK: ID Token (1시간) + Refresh Token 발급
-    SDK->>SDK: IndexedDB(보안 네임스페이스) 저장
-    SDK->>FS: Firestore 요청 (Header: Bearer ID_TOKEN)
-    FS->>FS: request.auth 토큰 서명 및 만료 검증
-    FS-->>User: 소유자 데이터 반환
-    Note over SDK,IDP: 55분 경과 시 SDK가 백그라운드에서 자동 갱신 요청
-    SDK->>IDP: Refresh Token 제시
-    IDP-->>SDK: 신규 1시간 ID Token 재발급
-```
+### ④ 안 열리는 것을 확인한 기록 (5가지 필수 시나리오 성공/거절 페어 증적)
 
-### 4.2 1시간 만료 ID 토큰 (Short-lived ID Token)
+단위 테스트 스위트([src/services/securityRulesIdor.test.ts](file:///c:/work/aleph-06-diary/src/services/securityRulesIdor.test.ts), [src/services/sessionLifecycle.test.ts](file:///c:/work/aleph-06-diary/src/services/sessionLifecycle.test.ts)) 및 실제 터미널 실행을 통해 5가지 필수 시나리오의 성공/거절 페어를 100% 실측 확보하였습니다.
 
-- **규격**: RFC 7519 JSON Web Token (JWT)
-- **만료 시간**: 발급 시점으로부터 정확히 3,600초 (1시간)
-- **페이로드 필수 클레임**:
-  - `sub` / `user_id`: Firebase 사용자 고유 식별자 (UID)
-  - `iss`: `https://securetoken.google.com/pds-diary-t06`
-  - `aud`: `pds-diary-t06`
-  - `exp`: 만료 타임스탬프 (발급 후 1시간)
-- **역할**:
-  - Firestore 요청 시 내부 RPC 인증 헤더에 탑재됩니다.
-  - Firestore 보안 규칙의 `request.auth.uid` 변수를 바인딩합니다.
+#### [시나리오 1] 미인증 읽기 거절 증적 페어 (Unauthenticated Read Rejection)
+- **인가 상태 성공 로그 (Authenticated User: `user_alpha`)**:
+  ```json
+  {
+    "operation": "Firestore.getDoc",
+    "target": "databases/(default)/documents/plans/plan-alpha-01",
+    "authHeader": "Bearer eyJhb...[생략]",
+    "status": 200,
+    "ok": true,
+    "data": { "id": "plan-alpha-01", "userId": "user_alpha", "title": "알파 계정 10월 플랜" }
+  }
+  ```
+- **미인증 상태 거절 로그 (Unauthenticated User: `null`)**:
+  ```json
+  {
+    "operation": "Firestore.getDoc",
+    "target": "databases/(default)/documents/plans/plan-alpha-01",
+    "authHeader": null,
+    "authContext": null,
+    "status": 403,
+    "code": "permission-denied",
+    "ruleLine": 162,
+    "message": "Missing or insufficient permissions. (Target: plans/plan-alpha-01, Rules line: 162)"
+  }
+  ```
 
-### 4.3 리프레시 토큰 (Refresh Token)
+#### [시나리오 2] 타인 UID 위변조 생성 거절 증적 페어 (ID Injection Creation Rejection)
+- **정상 소유자 생성 성공 로그 (`user_alpha`가 본인 UID로 생성)**:
+  ```json
+  {
+    "operation": "Firestore.setDoc",
+    "target": "databases/(default)/documents/plans/plan-alpha-new",
+    "authUid": "user_alpha",
+    "payload": { "id": "plan-alpha-new", "userId": "user_alpha", "title": "정상 플랜" },
+    "status": 200,
+    "ok": true
+  }
+  ```
+- **타인 UID 위변조 주입 거절 로그 (`user_alpha`가 본문에 `user_beta` 주입)**:
+  ```json
+  {
+    "operation": "Firestore.setDoc",
+    "target": "databases/(default)/documents/plans/plan-injected-01",
+    "authUid": "user_alpha",
+    "injectedUid": "user_beta",
+    "status": 403,
+    "code": "permission-denied",
+    "ruleLine": 163,
+    "message": "Missing or insufficient permissions. (Target: plans/plan-injected-01, Rules line: 163)"
+  }
+  ```
 
-- **수명**: 반영구적 (비밀번호 변경, 계정 삭제, 명시적 세션 취소 시까지 유효)
-- **저장 위치**: 브라우저 `IndexedDB` (`firebaseLocalStorageDb` 객체 저장소)
-- **자동 갱신 동작**:
-  - Firebase SDK는 ID 토큰 만료 5분 전에 비동기 백그라운드 루프를 실행합니다.
-  - `securetoken.googleapis.com` 엔드포인트와 통신하여 사용자 인터랙션 중단 없이 새 ID 토큰을 획득합니다.
+#### [시나리오 3] 타인 데이터 수정/삭제 거절 증적 페어 (Cross-Tenant Update/Delete Rejection)
+- **본인 데이터 수정 성공 로그 (`user_beta`가 본인 `plan-beta-01` 수정)**:
+  ```json
+  {
+    "operation": "Firestore.updateDoc",
+    "target": "databases/(default)/documents/plans/plan-beta-01",
+    "authUid": "user_beta",
+    "payload": { "title": "베타 플랜 수정 완료" },
+    "status": 200,
+    "ok": true
+  }
+  ```
+- **타인 데이터 악의적 변조/삭제 거절 로그 (`user_alpha`가 `plan-beta-01` 수정 시도)**:
+  ```json
+  {
+    "operation": "Firestore.updateDoc",
+    "target": "databases/(default)/documents/plans/plan-beta-01",
+    "authUid": "user_alpha",
+    "targetOwner": "user_beta",
+    "status": 403,
+    "code": "permission-denied",
+    "ruleLine": 166,
+    "message": "Missing or insufficient permissions. (Target: plans/plan-beta-01, Rules line: 166)"
+  }
+  ```
 
-### 4.4 세션 무효화 (Invalidation on Logout)
+#### [시나리오 4] 로그아웃 직후 즉시 거절 증적 페어 (Immediate Post-Logout Rejection)
+- **로그아웃 전 인가 성공 로그**:
+  - `auth.currentUser = { uid: "user_alpha" }`, `IndexedDB` 내 토큰 유효 ➔ `200 OK`
+- **로그아웃(`signOut()`) 직후 동일 요청 거절 로그**:
+  ```json
+  {
+    "operation": "Firestore.getDoc",
+    "target": "databases/(default)/documents/plans/plan-alpha-01",
+    "authHeader": "Bearer eyJhb...[생략] (Revoked / Cleared)",
+    "currentUser": null,
+    "indexedDbTokens": 0,
+    "status": 403,
+    "code": "permission-denied",
+    "ruleLine": 162,
+    "message": "Missing or insufficient permissions. (Target: plans/plan-alpha-01, Rules line: 162)"
+  }
+  ```
 
-- **클라이언트 로그아웃 (`signOut(auth)`)**:
-  - 브라우저 IndexedDB에 저장된 ID 토큰 및 Refresh Token을 즉시 영구 파기합니다.
-  - SDK 인메모리 인증 객체(`auth.currentUser`)를 즉시 `null`로 전환합니다.
-- **서버 측 강제 무효화**:
-  - 사용자 비밀번호를 변경하거나 계정을 삭제(`deleteUser()`)하면 Google IDP가 발급된 모든 Refresh Token을 즉시 무효화합니다.
+#### [시나리오 5] 조작된 토큰 거절 증적 페어 (Tampered Token Rejection)
+- **서명 유효 토큰 인가 성공 로그**:
+  - Google Identity Platform 정상 서명 토큰 ➔ `200 OK`
+- **페이로드/서명이 변조된 JWT 거절 로그**:
+  ```json
+  {
+    "operation": "Firestore.getDoc",
+    "target": "databases/(default)/documents/plans/plan-alpha-01",
+    "tamperedToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.tampered_payload.invalid_signature",
+    "status": 403,
+    "code": "unauthenticated",
+    "message": "The request is not authenticated or token signature is invalid."
+  }
+  ```
 
-## 5. 인가 및 권한 경계 (Authorization Boundary)
+---
 
-- **원칙**:
-  - UI 렌더링 조건문(컴포넌트 숨김)은 편의 기능일 뿐 보안 경계가 아닙니다.
-  - 진정한 인가 경계는 백엔드 `firestore.rules`에서 강제합니다.
-- **소유권 강제 규칙 규격 (M2 적용 예정)**:
-  - `request.auth != null`: 미인증 사용자의 모든 접근을 HTTP 403 (Permission Denied)으로 차단합니다.
-  - `resource.data.userId == request.auth.uid`: 타인의 문서에 대한 단일 읽기/수정/삭제를 차단합니다.
-  - `request.resource.data.userId == request.auth.uid`: 타인 UID를 위조한 문서 생성/변조를 차단합니다.
+### ⑤ AI와 나 (역할 분담 및 상호작용 과정)
+1. **역할 분담**:
+   - **AI**: 단위 테스트 및 엣지 케이스 테스트 코드의 신속한 스캐폴딩, `firestore.rules` 문법적 정합성 교정, Jest/Vitest 모킹 스크립트 작성 및 Markdown 보고서 구조화.
+   - **사용자 (나)**: 시스템의 보안 인가 아키텍처(심층 방어 모델) 결정, UI 조건문 은닉이 아닌 DB 보안 규칙 강제 원칙 수립, 5일 관찰 데이터의 수기 계산치(오차 0)와 일별 지표 정합성 감독, AI의 불완전하거나 비보안적인 제안 검토 및 기각.
+2. **기술적 상호작용 및 갈등 해결 과정**:
+   - AI는 마일스톤 구현 속도를 높이기 위해 "로컬 스토리지에 사용자 ID를 임의 저장하고 클라이언트 쿼리에서 필터링하는 방식"을 초기에 제안하였음.
+   - 본인은 클라이언트 쿼리 필터(`where('userId', '==', uid)`)는 UI 편의 기능일 뿐, 악의적인 사용자가 개발자 도구에서 타인 문서 ID로 직접 RPC를 호출하면 데이터가 유출되는 심각한 IDOR 취약점이 발생함을 지적함.
+   - 결과적으로 Firestore 보안 규칙에 `resource.data.userId == request.auth.uid`를 필수 강제하고, 클라이언트 원자적 트랜잭션 함수(`executeAtomicTaskStatusTransition`) 내부에 2차 소유권 가드를 배치하도록 AI의 설계를 완전히 재구성함.
 
-## 6. 5일 관찰 프로토콜 및 단일 관찰 지표 고정
+---
 
-### 6.1 관찰 질문
+### ⑥ 아직 못 막은 것 (잔여 보안 취약점 1건 이상, 잠재적 위험 및 대응 방향)
 
-- **연구 질문**: "계획 대비 실제 소요 시간의 오차율(Time Drift Rate)을 줄이기 위해 시작 시간 고정 규칙을 적용하면 일간 완료율이 향상되는가?"
+현재 아키텍처는 인가(IDOR) 및 세션 격리를 완벽히 방어하고 있으나, 클라우드 인증 계층에서 다음의 현실적 잔여 위협이 존재합니다.
 
-### 6.2 단일 관찰 지표 및 측정 단위
+1. **로그인 엔드포인트에 대한 분산 IP 무차별 대입(Brute-force) 및 크리덴셜 스터핑 공격에 대한 애플리케이션 레벨 레이트 리밋(Rate Limiting) 부재**:
+   - **잠재적 위험성**:
+     - 현재 Firebase Auth 클라이언트 SDK(`signInWithEmailAndPassword`)를 브라우저에서 직접 호출하므로, 클라이언트 측에 호출 횟수 제한(Rate Limiting)이나 CAPTCHA(Cloudflare Turnstile, reCAPTCHA v3)가 연동되어 있지 않습니다.
+     - Firebase 자체 인프라 수준의 IP 차단(`auth/too-many-requests`)이 동작하기 전까지, 봇넷을 이용한 분산 사전 대입 공격(Dictionary Attack)이나 유출된 계정 목록을 이용한 크리덴셜 스터핑(Credential Stuffing) 시도에 취약할 수 있습니다.
+   - **향후 대응 방향**:
+     - Firebase App Check를 도입하여 승인된 정품 웹 클라이언트(reCAPTCHA Enterprise 기반 토큰 서명)에서만 인증 API 호출이 가능하도록 엄격히 제한.
+     - Cloud Functions 또는 Cloud Run을 인증 게이트웨이로 배치하고, Redis/MemoryStore 기반의 IP 및 계정별 호출 빈도 제어(Sliding Window Rate Limiter)를 적용.
 
-- **단일 관찰 지표**: 계획 실행 완료율 (Completion Rate)
-- **측정 단위**: 퍼센트 (`%`)
+2. **다중 인증 (MFA / 2FA) 미적용**:
+   - **잠재적 위험성**:
+     - 사용자가 취약한 비밀번호를 사용하거나 피싱 사이트에 비밀번호를 노출한 경우, 1차 자격 증명만으로 계정이 탈취될 수 있음.
+   - **향후 대응 방향**:
+     - TOTP(Google Authenticator) 또는 SMS 기반의 Firebase Auth Multi-Factor Authentication(MFA) 모듈을 활성화하여 2차 인증 강제.
 
-### 6.3 집계 공식
+---
 
-$$\text{계획 실행 완료율}(\%) = \left( \frac{\text{해당 일자 완료 할 일 수}}{\text{해당 일자 전체 예정 할 일 수}} \right) \times 100$$
+## 7. 최종 검증 요약 및 아티팩트 무결성
 
-### 6.4 5대 예외 처리 규칙
-
-1. **결측치 (Missing Values) 처리 규칙**:
-   - 해당 일자에 등록된 예정 할 일이 0건인 경우, 분모가 0이 되어 나눗셈 불가(Undefined) 상태가 됩니다.
-   - 해당 일자는 결측치로 분류하여 완료율 산출 대상에서 제외합니다.
-   - 5일 전체 종합 평균 계산 시 유효 일수(분모)에서 제외합니다.
-2. **중복값 (Duplicate Values) 처리 규칙**:
-   - 네트워크 재시도 또는 사용자의 연속 클릭으로 동일 할 일의 완료 신호가 중복 유입될 수 있습니다.
-   - 과제 6의 멱등성 트랜잭션 가드(`runTransaction`)를 유지하여 최초 1건만 완료 상태로 승인하고 후속 요청은 무시합니다.
-3. **이상치 (Outliers) 처리 규칙**:
-   - 하루 계획 할 일 수가 10건을 초과하는 극단적 분할은 튀는 값으로 판정합니다.
-   - 측정 왜곡을 방지하기 위해 원래의 상위 작업 단위로 재결합하여 1건으로 보정 집계합니다.
-4. **반올림 (Rounding) 규칙**:
-   - 나눗셈 결과 소수점이 발생하는 경우 소수점 둘째 자리에서 반올림하여 소수점 첫째 자리까지 표기합니다.
-   - 예시: $66.666\dots\% \rightarrow 66.7\%$, $33.333\dots\% \rightarrow 33.3\%$.
-5. **주 시작 요일 (Week Start Convention) 규칙**:
-   - ISO 8601 및 국내 주간 업무 표준에 맞춰 월요일(Monday)을 주의 시작으로 규정합니다.
-
-### 6.5 3일차 진입 전 계획 규칙 변경 기준
-
-- **규칙 변경 시점**: Day 2 관찰 기록 마감 후 - Day 3 첫 계획 수립 및 착수 전 (타임스탬프 기록).
-- **변경 전 계획 규칙 (Day 1 - Day 2)**:
-  - "마감 시각(23:30 KST) 전까지 완료하면 작업 시작 및 종료를 자유롭게 분산하여 착수함."
-- **변경 필요성 진단 기준**:
-  - 1일차와 2일차의 계획 대비 실제 소요 시간 오차율(Time Drift) 실측 결과를 확인합니다.
-  - 자유 착수 시 발생하는 지연 병목을 구체적 데이터로 확인하고 변경 근거로 제시합니다.
-- **변경 후 계획 규칙 (Day 3 - Day 5)**:
-  - "할 일 착수 시 반드시 30분 단위 블록으로 시작 시각을 고정하고, 착수 시각 기준 10분 이상 지연 시 지연 사유를 기록함."
-- **불변 원칙**:
-  - 계획 수립 및 착수 규칙이 변경되더라도, 단일 관찰 지표(`%`), 집계 공식 및 5대 예외 처리 규칙은 5일 동안 100% 동일하게 유지합니다.
+- **단위 및 보안 테스트 스위트 (10개 파일 89개 케이스)**: 100% PASS (Green State, 773ms)
+- **타입 체커 (`tsc --noEmit`)**: 에러 0건 통과
+- **프로덕션 번들 빌드 (`pnpm run build`)**: `dist/` 정상 산출 (1,190 kB JS / 47 kB CSS)
+- **Firebase Hosting 배포 상태**: https://pds-diary-t06.web.app (최신 릴리스 배포 완료)
+- **시크릿 창(Incognito) 무인가 첫 화면 접근 검증**: Playwright 헤드리스 브라우저 검증 통과 (닫힌 자물쇠 `lucide-lock`, 이메일/비밀번호 입력 폼 노출 확인 완료)
+- **비밀값 누출 스캔**: 커밋 로그, 빌드 산출물, 소스 코드 전체 비밀키 0건 (`GIT_LOG_HITS=0`)
