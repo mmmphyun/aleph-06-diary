@@ -16,6 +16,7 @@ export interface TextRevision {
 
 export interface PlanPackage {
   id: string;
+  userId?: string; // Firebase Authentication User UID (T07)
   title: string;
   content: string; // 계획 본문 텍스트
   revisions: TextRevision[]; // 본문 만년필 인라인 1회 교정 목록
@@ -52,6 +53,7 @@ export type TaskStatus = 'todo' | 'in_progress' | 'done';
 
 export interface TaskItem {
   id: string;
+  userId?: string; // Firebase Authentication User UID (T07)
   title: string;
   done: boolean;
   startDate: string; // YYYY-MM-DD (KST)
@@ -84,6 +86,7 @@ export interface TaskInputDto {
 
 export interface LogItem {
   id: string;
+  userId?: string; // Firebase Authentication User UID (T07)
   taskId: string;
   taskTitle: string;
   completedAt: string;
@@ -142,4 +145,6 @@ export interface IPlanPackageRepository {
   restoreLog(pkgId: string, logId: string, targetStatus?: 0 | 2): PlanPackage;
   purgeLog(pkgId: string, logId: string): PlanPackage;
   purgeExpiredTrash(): { purgedPlans: string[]; purgedTasks: string[]; purgedLogs: string[] };
+  // M2 / T07-C134: 회원 탈퇴 시 사용자 소유 전체 데이터 일괄 영구 파기
+  purgeAllUserData(): Promise<void>;
 }

@@ -4,6 +4,7 @@ import {
   signIn as serviceSignIn,
   signUp as serviceSignUp,
   signOut as serviceSignOut,
+  deleteAccount as serviceDeleteAccount,
   subscribeAuthState,
 } from '../services/authService';
 
@@ -14,6 +15,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<User>;
   register: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -76,6 +78,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const deleteAccount = async (): Promise<void> => {
+    setAuthError(null);
+    try {
+      await serviceDeleteAccount();
+      setCurrentUser(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '계정 삭제에 실패했습니다';
+      setAuthError(message);
+      throw err;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -85,6 +99,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         login,
         register,
         logout,
+        deleteAccount,
         clearError,
       }}
     >

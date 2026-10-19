@@ -23,6 +23,7 @@ interface ArchiveSpreadViewProps {
   onRestoreLog: (pkgId: string, logId: string) => void;
   onPurgeLog: (pkgId: string, logId: string) => void;
   onPurgeExpired: () => void;
+  onDeleteAccount?: () => Promise<void>;
 }
 
 function getRemainingDays(trashedAt?: string | null): number {
@@ -42,7 +43,9 @@ export const ArchiveSpreadView: React.FC<ArchiveSpreadViewProps> = ({
   onRestoreLog,
   onPurgeLog,
   onPurgeExpired,
+  onDeleteAccount,
 }) => {
+  const [isDeletingAccount, setIsDeletingAccount] = useState<boolean>(false);
   // 좌측(계획) 페이지네이션: 4건 단위 무스크롤
   const [planPage, setPlanPage] = useState<number>(0);
   // 우측(할일/일지) 탭: 'tasks' | 'logs'
@@ -113,23 +116,55 @@ export const ArchiveSpreadView: React.FC<ArchiveSpreadViewProps> = ({
             <span className="font-mono text-[11px] text-stone-400">ARCHIVE P.01</span>
           </div>
 
-          {/* 타이틀 및 설명 */}
+          {/* 타이틀 및 액션 영역 */}
           <div className="mt-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between gap-2">
               <h2 className="font-serif text-2xl text-stone-800">지워진 생각의 보관함</h2>
-              <button
-                type="button"
-                onClick={handleExportAll}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium text-emerald-800 bg-emerald-50 border border-emerald-300 rounded shadow-2xs hover:bg-emerald-100 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500"
-                title="전체 자료(휴지통 포함)를 UTF-8 JSON 단일 파일로 다운로드합니다"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>JSON 내보내기</span>
-              </button>
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleExportAll}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium text-emerald-800 bg-emerald-50 border border-emerald-300 rounded shadow-2xs hover:bg-emerald-100 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  title="전체 자료(휴지통 포함)를 UTF-8 JSON 단일 파일로 다운로드합니다"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>JSON 내보내기</span>
+                </button>
+                {onDeleteAccount && (
+                  <button
+                    type="button"
+                    disabled={isDeletingAccount}
+                    onClick={async () => {
+                      const confirmed = window.confirm(
+                        '계정 삭제 시 등록된 모든 다이어리 데이터(계획·할 일·실행 기록)가 함께 영구 파기됩니다.\n정말로 탈퇴하시겠습니까?'
+                      );
+                      if (!confirmed) return;
+                      try {
+                        setIsDeletingAccount(true);
+                        await onDeleteAccount();
+                      } catch (err) {
+                        console.error('계정 탈퇴 처리 실패:', err);
+                        alert('계정 삭제 중 오류가 발생했습니다. 다시 로그인 후 시도해 주십시오.');
+                        setIsDeletingAccount(false);
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium text-red-700 bg-red-50 border border-red-300 rounded shadow-2xs hover:bg-red-100 transition-colors cursor-pointer disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-red-500"
+                    title="계정 및 모든 다이어리 데이터를 영구 파기합니다"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isDeletingAccount ? '삭제 처리 중...' : '계정 삭제'}</span>
+                  </button>
+                )}
+              </div>
             </div>
             <p className="font-sans text-xs text-stone-500 mt-1 leading-relaxed">
               삭제된 계획은 구겨진 종이와 마스킹 테이프로 7일간 보존되며 언제든 복구할 수 있습니다.
             </p>
+            {onDeleteAccount && (
+              <p className="font-sans text-[11px] text-amber-700/90 mt-1.5 leading-snug bg-amber-50/80 px-2 py-1 rounded border border-amber-200/70">
+                계정 삭제 시 등록된 모든 다이어리 데이터(계획·할 일·실행 기록)가 함께 영구 파기됩니다.
+              </p>
+            )}
           </div>
 
           {/* 삭제된 계획 목록 (무스크롤 4건) */}

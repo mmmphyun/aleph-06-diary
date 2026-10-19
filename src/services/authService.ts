@@ -2,6 +2,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
+  deleteUser,
   onAuthStateChanged,
   type User,
   type NextOrObserver,
@@ -88,6 +89,22 @@ export const signOut = async (): Promise<void> => {
 };
 
 /**
+ * M2 / T07-C134: 계정 탈퇴 및 토큰 영구 파기
+ */
+export const deleteAccount = async (): Promise<void> => {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('로그인된 계정이 없습니다');
+  }
+
+  try {
+    await deleteUser(user);
+  } catch (error) {
+    throw new Error(mapAuthError(error));
+  }
+};
+
+/**
  * 인증 상태 변경 구독
  * 초기 세션 복원 및 로그인/로그아웃 실시간 동기화
  */
@@ -105,6 +122,7 @@ export const authService = {
   signIn,
   signUp,
   signOut,
+  deleteAccount,
   subscribeAuthState,
   getCurrentUser,
   mapAuthError,

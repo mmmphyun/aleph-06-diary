@@ -5,8 +5,10 @@ import {
   getDocs,
   onSnapshot,
   runTransaction,
+  query,
+  where,
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 import type {
   PlanPackage,
   TaskItem,
@@ -34,9 +36,14 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
     this.initFirestoreSync();
   }
 
+  private getCacheKey(): string {
+    const uid = auth.currentUser?.uid;
+    return uid ? `${STORAGE_CACHE_KEY}_${uid}` : STORAGE_CACHE_KEY;
+  }
+
   private initCacheFromLocal(): void {
     try {
-      const data = localStorage.getItem(STORAGE_CACHE_KEY);
+      const data = localStorage.getItem(this.getCacheKey());
       if (data) {
         const parsed = JSON.parse(data);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -52,7 +59,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
 
   private saveToLocal(): void {
     try {
-      localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(this.cache));
+      localStorage.setItem(this.getCacheKey(), JSON.stringify(this.cache));
     } catch {
       // 로컬 스토리지 쓰기 오류 무시
     }
@@ -63,9 +70,16 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
     this.isInitialized = true;
 
     try {
-      const plansSnapshot = await getDocs(collection(db, 'plans'));
+      const uid = auth.currentUser?.uid;
+      if (!uid) {
+        // 미인증 상태에서는 로컬 캐시 유지
+        return;
+      }
+
+      const q = query(collection(db, 'plans'), where('userId', '==', uid));
+      const plansSnapshot = await getDocs(q);
       if (plansSnapshot.empty) {
-        // Firestore가 비어있으면 초기 패키지들을 plans, tasks, executionLogs로 분해하여 원자적 시딩
+        // Firestore에 사용자 데이터가 없으면 사용자 UID를 주입하여 초기 패키지 원자적 시딩
         await this.seedPackages(this.cache);
       } else {
         await this.refreshFromFirestore();
@@ -79,13 +93,17 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
   }
 
   private async seedPackages(packages: PlanPackage[]): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
     try {
       const batch = writeBatch(db);
       for (const pkg of packages) {
-        // 1. plans 컬렉션 문서
+        // 1. plans 컬렉션 문서 (userId 필수 주입)
         const planRef = doc(db, 'plans', pkg.id);
         batch.set(planRef, {
           id: pkg.id,
+          userId: uid,
           title: pkg.title,
           content: pkg.content,
           revisions: pkg.revisions || [],
@@ -100,11 +118,12 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
           retentionDays: pkg.retentionDays ?? 7,
         });
 
-        // 2. tasks 컬렉션 문서 분해
+        // 2. tasks 컬렉션 문서 분해 (userId 필수 주입)
         for (const task of pkg.tasks) {
           const taskRef = doc(db, 'tasks', task.id);
           batch.set(taskRef, {
             id: task.id,
+            userId: uid,
             planId: pkg.id,
             title: task.title,
             done: task.done,
@@ -123,11 +142,12 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
           });
         }
 
-        // 3. executionLogs 컬렉션 문서 분해
+        // 3. executionLogs 컬렉션 문서 분해 (userId 필수 주입)
         for (const log of pkg.logs) {
           const logRef = doc(db, 'executionLogs', log.id);
           batch.set(logRef, {
             id: log.id,
+            userId: uid,
             planId: pkg.id,
             taskId: log.taskId,
             taskTitle: log.taskTitle,
@@ -149,11 +169,14 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
   }
 
   private async refreshFromFirestore(): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
     try {
       const [plansSnap, tasksSnap, logsSnap] = await Promise.all([
-        getDocs(collection(db, 'plans')),
-        getDocs(collection(db, 'tasks')),
-        getDocs(collection(db, 'executionLogs')),
+        getDocs(query(collection(db, 'plans'), where('userId', '==', uid))),
+        getDocs(query(collection(db, 'tasks'), where('userId', '==', uid))),
+        getDocs(query(collection(db, 'executionLogs'), where('userId', '==', uid))),
       ]);
 
       if (plansSnap.empty) return;
@@ -170,8 +193,12 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
   }
 
   private listenToCollections(): void {
-    // plans 컬렉션 변경 리스너
-    onSnapshot(collection(db, 'plans'), () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
+    // plans 컬렉션 변경 리스너 (where('userId', '==', uid) 필터 강제)
+    const q = query(collection(db, 'plans'), where('userId', '==', uid));
+    onSnapshot(q, () => {
       this.refreshFromFirestore().catch(() => {});
     });
   }
@@ -191,6 +218,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
             const isDone = !!t.done || t.status === 'done';
             return {
               id: t.id,
+              userId: t.userId,
               title: t.title || '',
               done: isDone,
               startDate: t.startDate || today,
@@ -216,6 +244,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
             const actualMinutes = calculateActualMinutes(startedAt, endedAt);
             return {
               id: l.id,
+              userId: l.userId,
               taskId: l.taskId,
               taskTitle: l.taskTitle,
               completedAt: l.completedAt,
@@ -232,6 +261,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
 
         return {
           id: p.id,
+          userId: p.userId,
           title: p.title || '',
           content: p.content || '',
           revisions: (p.revisions || []).map((r: any) => ({
@@ -255,13 +285,17 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
   }
 
   private async syncPackageToFirestore(pkg: PlanPackage, deletedTaskIds: string[] = []): Promise<void> {
+    const uid = auth.currentUser?.uid || pkg.userId;
+    if (!uid) return;
+
     try {
       const batch = writeBatch(db);
 
-      // 1. plans 컬렉션 원자적 업데이트
+      // 1. plans 컬렉션 원자적 업데이트 (userId 필수 주입)
       const planRef = doc(db, 'plans', pkg.id);
       batch.set(planRef, {
         id: pkg.id,
+        userId: uid,
         title: pkg.title,
         content: pkg.content,
         revisions: pkg.revisions || [],
@@ -276,11 +310,12 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
         retentionDays: pkg.retentionDays ?? 7,
       });
 
-      // 2. tasks 컬렉션 원자적 저장
+      // 2. tasks 컬렉션 원자적 저장 (userId 필수 주입)
       for (const task of pkg.tasks) {
         const taskRef = doc(db, 'tasks', task.id);
         batch.set(taskRef, {
           id: task.id,
+          userId: uid,
           planId: pkg.id,
           title: task.title,
           done: task.done,
@@ -304,11 +339,12 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
         batch.delete(doc(db, 'tasks', delId));
       }
 
-      // 3. executionLogs 컬렉션 원자적 저장
+      // 3. executionLogs 컬렉션 원자적 저장 (userId 필수 주입)
       for (const log of pkg.logs) {
         const logRef = doc(db, 'executionLogs', log.id);
         batch.set(logRef, {
           id: log.id,
+          userId: uid,
           planId: pkg.id,
           taskId: log.taskId,
           taskTitle: log.taskTitle,
@@ -354,8 +390,10 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
   createPackage(title: string, startDate?: string, endDate?: string): PlanPackage {
     const lastPage = this.cache.length > 0 ? this.cache[this.cache.length - 1].startPage + 4 : 1;
     const today = new Date().toISOString().split('T')[0];
+    const uid = auth.currentUser?.uid;
     const newPkg: PlanPackage = {
       id: `plan-${Date.now()}`,
+      userId: uid,
       title: title.trim() || `새로운 계획 ${this.cache.length + 1}`,
       content: '',
       revisions: [],
@@ -428,6 +466,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
     if (!target) return this.cache[0];
 
     const today = getTodayKST();
+    const uid = auth.currentUser?.uid || target.userId;
 
     const title = typeof input === 'string' ? input.trim() : input.title.trim();
     const startDate = (typeof input === 'object' && input.startDate) || today;
@@ -440,6 +479,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
 
     const newTask: TaskItem = {
       id: `t-${Date.now()}`,
+      userId: uid,
       title: title || '새로운 할 일',
       done: status === 'done',
       startDate,
@@ -839,6 +879,41 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
     return { purgedPlans, purgedTasks, purgedLogs };
   }
 
+  /**
+   * M2 / T07-C134: 회원 탈퇴 시 사용자 소유 전체 데이터 일괄 영구 파기 (Batch Delete)
+   */
+  async purgeAllUserData(): Promise<void> {
+    const uid = auth.currentUser?.uid;
+
+    if (uid) {
+      try {
+        const [plansSnap, tasksSnap, logsSnap] = await Promise.all([
+          getDocs(query(collection(db, 'plans'), where('userId', '==', uid))),
+          getDocs(query(collection(db, 'tasks'), where('userId', '==', uid))),
+          getDocs(query(collection(db, 'executionLogs'), where('userId', '==', uid))),
+        ]);
+
+        const batch = writeBatch(db);
+        plansSnap.docs.forEach((d) => batch.delete(d.ref));
+        tasksSnap.docs.forEach((d) => batch.delete(d.ref));
+        logsSnap.docs.forEach((d) => batch.delete(d.ref));
+
+        await batch.commit();
+      } catch (err) {
+        console.warn('[FirestorePlanPackageRepository] Firestore 사용자 데이터 일괄 삭제 경고:', err);
+      }
+    }
+
+    // 로컬 캐시 및 스토리지 완전 초기화
+    this.cache = [];
+    try {
+      localStorage.removeItem(this.getCacheKey());
+      localStorage.removeItem(STORAGE_CACHE_KEY);
+    } catch {
+      // 로컬 스토리지 정리 실패 무시
+    }
+  }
+
   updateLogComment(pkgId: string, logId: string, comment: string): PlanPackage {
     return this.updateLog(pkgId, logId, { comment });
   }
@@ -959,6 +1034,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
     newLog: LogItem | null
   ): Promise<void> {
     const taskRef = doc(db, 'tasks', taskId);
+    const currentUser = auth.currentUser;
 
     await runTransaction(db, async (transaction) => {
       const taskDoc = await transaction.get(taskRef);
@@ -967,6 +1043,12 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
       }
 
       const taskData = taskDoc.data();
+
+      // 소유권 2차 방어선 (defense-in-depth): currentUser가 있고 taskData.userId가 존재할 때 일치 여부 강제
+      if (currentUser && taskData.userId && taskData.userId !== currentUser.uid) {
+        throw new Error(`Permission denied: Task ${taskId} does not belong to user ${currentUser.uid}.`);
+      }
+
       const currentStatus = taskData.status || (taskData.done ? 'done' : 'todo');
 
       if (targetDone) {
@@ -986,8 +1068,10 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
         // 2. 실행 기록 추가 (계획 본문 및 revisions는 절대 건드리지 않음)
         if (newLog) {
           const logRef = doc(db, 'executionLogs', newLog.id);
+          const logUserId = currentUser?.uid || newLog.userId || taskData.userId;
           transaction.set(logRef, {
             id: newLog.id,
+            ...(logUserId ? { userId: logUserId } : {}),
             planId,
             taskId: newLog.taskId,
             taskTitle: newLog.taskTitle,

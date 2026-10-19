@@ -28,7 +28,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   onCoverOpenChange,
   onRegisterCloseHandler,
 }) => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, deleteAccount } = useAuth();
 
   // 다이어리 개폐 상태: 'closed'(Frame 0 닫힘) | 'opened'(표지 열림 완료 후 바닥 고정)
   const [isOpen, setIsOpen] = useState(false);
@@ -320,6 +320,18 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     }
   };
 
+  // M2: 계정 탈퇴 및 소유 데이터 영구 파기 처리 (T07-C134)
+  const handleDeleteAccount = async () => {
+    try {
+      await planPackageService.purgeAllUserData();
+      await deleteAccount();
+      handleCloseCover();
+    } catch (err) {
+      console.error('계정 탈퇴 처리 중 오류 발생:', err);
+      throw err;
+    }
+  };
+
   // 세션 종료(currentUser null 전이) 시 표지 잠금 화면 자동 강제 복귀
   useEffect(() => {
     if (!currentUser && isOpen) {
@@ -538,6 +550,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
               onRestoreLog={handleRestoreLog}
               onPurgeLog={handlePurgeLog}
               onPurgeExpired={handlePurgeExpired}
+              onDeleteAccount={handleDeleteAccount}
             />
           )}
             </>

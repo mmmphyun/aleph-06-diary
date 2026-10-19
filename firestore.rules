@@ -2,79 +2,18 @@ rules_version = '2';
 
 /**
  * Cloud Firestore Security Rules
- * Project: pds-diary-t06 (플랜두씨 다이어리 1 / 과제 6)
+ * Project: pds-diary-t06 (플랜두씨 다이어리 2 / 과제 7 - Milestone M2)
  *
  * Operational Mode:
- * - Public Web Application without login authentication (T06-C01, T06-C82).
- * - Read, create, update, and delete are permitted for unauthenticated clients (request.auth == null).
- * - All other collections are denied by default.
- * - Schema integrity, data type validation, DoS/resource exhaustion bounds, and immutable key protections are strictly enforced.
+ * - User-isolated authenticated access with strict ownership enforcement (T07-C100, T07-C124, T07-C125).
+ * - All collection operations require authentication (request.auth != null).
+ * - Read / Update / Delete: resource.data.userId == request.auth.uid.
+ * - Create: request.resource.data.userId == request.auth.uid.
+ * - Enforces schema integrity, string/array limits (DoS prevention), and key immutability.
+ * - All undefined collections are denied by default.
  */
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: plans
-    // Document ID: {planId} (alphanumeric string, 1-128 chars)
-    // Fields:
-    //   - id: string (required, immutable) - Document ID
-    //   - title: string (required, 1-200 chars) - Plan title
-    //   - content: string (required, 0-50000 chars) - Plain text body
-    //   - revisions: list (optional, max 500 items) - Text correction revisions
-    //   - startPage: int (required, 1-1000) - Binder start page
-    //   - tasksTemplateApplied: bool (optional) - Template applied flag
-    //   - planStatus: string (optional, 'draft' | 'confirmed') - Status
-    //   - period: map or null (optional) - Period with start/end strings
-    //   - createdAt: string (required, immutable, max 50 chars) - ISO timestamp
-    //   - updatedAt: string (optional, max 50 chars) - ISO timestamp
-    //   - trashStatus: int (required, 0 | 1 | 2) - Soft-delete status
-    //   - trashedAt: string or null (optional, max 50 chars) - Trashed timestamp
-    //   - retentionDays: int (optional, 0-365) - Retention days
-    //
-    // Collection: tasks
-    // Document ID: {taskId} (alphanumeric string, 1-128 chars)
-    // Fields:
-    //   - id: string (required, immutable) - Document ID
-    //   - planId: string (required, immutable, 1-128 chars) - Foreign key to plans
-    //   - title: string (required, 1-200 chars) - Task title
-    //   - done: bool (required) - Completion state
-    //   - startDate: string (required, max 50 chars) - Start date (YYYY-MM-DD)
-    //   - dueDate: string (required, max 50 chars) - Due date (YYYY-MM-DD HH:mm)
-    //   - priority: string (required, 'high' | 'medium' | 'low') - Priority
-    //   - description: string (optional, max 5000 chars) - Details
-    //   - tags: list (required, max 50 items) - Tag array
-    //   - estimatedMinutes: int (optional, 0-100000) - Estimated minutes
-    //   - status: string (required, 'todo' | 'in_progress' | 'done') - Status
-    //   - completedAt: string or null (optional, max 50 chars) - ISO timestamp
-    //   - createdAt: string (required, immutable, max 50 chars) - ISO timestamp
-    //   - updatedAt: string or null (optional, max 50 chars) - ISO timestamp
-    //   - trashStatus: int (optional, 0 | 1 | 2) - Soft-delete status
-    //   - trashedAt: string or null (optional, max 50 chars) - Trashed timestamp
-    //   - retentionDays: int (optional, 0-365) - Retention days
-    //
-    // Collection: executionLogs
-    // Document ID: {logId} (alphanumeric string, 1-128 chars)
-    // Fields:
-    //   - id: string (required, immutable) - Document ID
-    //   - planId: string (required, immutable, 1-128 chars) - Foreign key to plans
-    //   - taskId: string (required, immutable, 1-128 chars) - Foreign key to tasks
-    //   - taskTitle: string (required, max 200 chars) - Task title snapshot
-    //   - completedAt: string (required, max 50 chars) - Completion timestamp
-    //   - startedAt: string or null (optional, max 50 chars) - Start timestamp
-    //   - endedAt: string or null (optional, max 50 chars) - End timestamp
-    //   - actualMinutes: int (optional, 0-100000) - Execution minutes
-    //   - impediment: string (optional, max 5000 chars) - Blocker note
-    //   - blockerReason: string (optional, max 5000 chars) - Blocker reason
-    //   - comment: string (required, max 5000 chars) - Reflection note
-    //   - createdAt: string (optional, max 50 chars) - ISO timestamp
-    //   - trashStatus: int (optional, 0 | 1 | 2) - Soft-delete status
-    //   - trashedAt: string or null (optional, max 50 chars) - Trashed timestamp
-    //   - retentionDays: int (optional, 0-365) - Retention days
-    //
-    // ===============================================================
 
     // ---------------------------------------------------------------
     // Helper & Validation Functions
@@ -116,15 +55,21 @@ service cloud.firestore {
       );
     }
 
+    function isValidUserId(userId) {
+      return userId is string && userId.size() > 0 && userId.size() <= 128;
+    }
+
     // Domain validator for plans
     function isValidPlan(data, planId) {
-      return data.keys().hasAll(['id', 'title', 'content', 'startPage', 'createdAt', 'trashStatus']) &&
+      return data.keys().hasAll(['id', 'userId', 'title', 'content', 'startPage', 'createdAt', 'trashStatus']) &&
         data.keys().hasOnly([
-          'id', 'title', 'content', 'revisions', 'startPage',
+          'id', 'userId', 'title', 'content', 'revisions', 'startPage',
           'tasksTemplateApplied', 'planStatus', 'period', 'createdAt',
           'updatedAt', 'trashStatus', 'trashedAt', 'retentionDays',
-          'priority', 'successCriteria', 'estimatedMinutes', 'revisionCount'
+          'priority', 'successCriteria', 'estimatedMinutes', 'revisionCount',
+          'periodStart', 'periodEnd'
         ]) &&
+        isValidUserId(data.userId) &&
         data.id is string && data.id == planId && data.id.size() <= 128 &&
         data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
         data.content is string && data.content.size() <= 50000 &&
@@ -142,13 +87,14 @@ service cloud.firestore {
 
     // Domain validator for tasks
     function isValidTask(data, taskId) {
-      return data.keys().hasAll(['id', 'planId', 'title', 'done', 'startDate', 'dueDate', 'priority', 'tags', 'status', 'createdAt']) &&
+      return data.keys().hasAll(['id', 'userId', 'planId', 'title', 'done', 'startDate', 'dueDate', 'priority', 'tags', 'status', 'createdAt']) &&
         data.keys().hasOnly([
-          'id', 'planId', 'title', 'done', 'startDate',
+          'id', 'userId', 'planId', 'title', 'done', 'startDate',
           'dueDate', 'priority', 'description', 'tags', 'estimatedMinutes',
           'status', 'completedAt', 'createdAt', 'updatedAt', 'trashStatus',
           'trashedAt', 'retentionDays'
         ]) &&
+        isValidUserId(data.userId) &&
         data.id is string && data.id == taskId && data.id.size() <= 128 &&
         data.planId is string && data.planId.size() > 0 && data.planId.size() <= 128 &&
         data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
@@ -168,14 +114,15 @@ service cloud.firestore {
         (!('retentionDays' in data) || (data.retentionDays is int && data.retentionDays >= 0 && data.retentionDays <= 365));
     }
 
-    // Domain validator for executionLogs
+    // Domain validator for executionLogs / logs
     function isValidExecutionLog(data, logId) {
-      return data.keys().hasAll(['id', 'planId', 'taskId', 'taskTitle', 'completedAt', 'comment']) &&
+      return data.keys().hasAll(['id', 'userId', 'planId', 'taskId', 'taskTitle', 'completedAt', 'comment']) &&
         data.keys().hasOnly([
-          'id', 'planId', 'taskId', 'taskTitle', 'completedAt',
+          'id', 'userId', 'planId', 'taskId', 'taskTitle', 'completedAt',
           'startedAt', 'endedAt', 'actualMinutes', 'impediment', 'blockerReason',
           'comment', 'createdAt', 'trashStatus', 'trashedAt', 'retentionDays'
         ]) &&
+        isValidUserId(data.userId) &&
         data.id is string && data.id == logId && data.id.size() <= 128 &&
         data.planId is string && data.planId.size() > 0 && data.planId.size() <= 128 &&
         data.taskId is string && data.taskId.size() > 0 && data.taskId.size() <= 128 &&
@@ -193,40 +140,104 @@ service cloud.firestore {
         (!('retentionDays' in data) || (data.retentionDays is int && data.retentionDays >= 0 && data.retentionDays <= 365));
     }
 
+    // Domain validator for planHistories / planRevisions
+    function isValidPlanHistory(data, historyId) {
+      return data.keys().hasAll(['userId', 'planId']) &&
+        isValidUserId(data.userId) &&
+        data.planId is string && data.planId.size() > 0 && data.planId.size() <= 128 &&
+        (!('id' in data) || (data.id is string && data.id == historyId && data.id.size() <= 128)) &&
+        (!('revisionNumber' in data) || (data.revisionNumber is int && data.revisionNumber >= 0)) &&
+        (!('trashStatus' in data) || isValidTrashStatus(data.trashStatus)) &&
+        (!('trashedAt' in data) || data.trashedAt == null || (data.trashedAt is string && data.trashedAt.size() <= 50)) &&
+        (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50)) &&
+        (!('revisedAt' in data) || (data.revisedAt is string && data.revisedAt.size() <= 50));
+    }
+
     // ---------------------------------------------------------------
     // Collection Rules
     // ---------------------------------------------------------------
 
     // 1. plans 컬렉션
     match /plans/{planId} {
-      allow read: if true;
-      allow create: if isValidPlan(request.resource.data, planId);
-      allow update: if isValidPlan(request.resource.data, planId) &&
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid &&
+        isValidPlan(request.resource.data, planId);
+      allow update: if request.auth != null &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid &&
+        isValidPlan(request.resource.data, planId) &&
         request.resource.data.id == resource.data.id &&
         (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
-      allow delete: if true;
     }
 
     // 2. tasks 컬렉션
     match /tasks/{taskId} {
-      allow read: if true;
-      allow create: if isValidTask(request.resource.data, taskId);
-      allow update: if isValidTask(request.resource.data, taskId) &&
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid &&
+        isValidTask(request.resource.data, taskId);
+      allow update: if request.auth != null &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid &&
+        isValidTask(request.resource.data, taskId) &&
         request.resource.data.id == resource.data.id &&
         request.resource.data.planId == resource.data.planId &&
         (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
-      allow delete: if true;
     }
 
-    // 3. executionLogs 컬렉션
+    // 3. executionLogs 컬렉션 (및 logs 별칭 지원)
     match /executionLogs/{logId} {
-      allow read: if true;
-      allow create: if isValidExecutionLog(request.resource.data, logId);
-      allow update: if isValidExecutionLog(request.resource.data, logId) &&
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid &&
+        isValidExecutionLog(request.resource.data, logId);
+      allow update: if request.auth != null &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid &&
+        isValidExecutionLog(request.resource.data, logId) &&
         request.resource.data.id == resource.data.id &&
         request.resource.data.planId == resource.data.planId &&
         request.resource.data.taskId == resource.data.taskId;
-      allow delete: if true;
+    }
+
+    match /logs/{logId} {
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid &&
+        isValidExecutionLog(request.resource.data, logId);
+      allow update: if request.auth != null &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid &&
+        isValidExecutionLog(request.resource.data, logId) &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.planId == resource.data.planId &&
+        request.resource.data.taskId == resource.data.taskId;
+    }
+
+    // 4. planHistories 컬렉션 (및 planRevisions 별칭 지원)
+    match /planHistories/{historyId} {
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid &&
+        isValidPlanHistory(request.resource.data, historyId);
+      allow update: if request.auth != null &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid &&
+        isValidPlanHistory(request.resource.data, historyId) &&
+        (!('planId' in resource.data) || request.resource.data.planId == resource.data.planId);
+    }
+
+    match /planRevisions/{revisionId} {
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid &&
+        isValidPlanHistory(request.resource.data, revisionId);
+      allow update: if request.auth != null &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid &&
+        isValidPlanHistory(request.resource.data, revisionId) &&
+        (!('planId' in resource.data) || request.resource.data.planId == resource.data.planId);
     }
 
     // ---------------------------------------------------------------
