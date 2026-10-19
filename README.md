@@ -39,6 +39,6 @@
 
 - **인증 솔루션**: Firebase Authentication Email/Password (v12.19.0, RS256 JWT, TTL 3,600s, scrypt 해싱)
 - **보안 경계**: Cloud Firestore Security Rules 소유자 완전 격리 (`resource.data.userId == request.auth.uid`)
-- **테스트 커버리지**: 10개 테스트 파일, 89개 테스트 케이스 전수 통과 (Duration: ~770ms)
+- **테스트 커버리지**: 11개 테스트 파일, 92개 테스트 케이스 전수 통과 (Duration: ~850ms)
 - **정적 분석**: TypeScript strict (`tsc --noEmit`) 0건 에러
 - **비밀값 보존**: Git 전체 히스토리 및 빌드 번들 내 비밀키 노출 0건
