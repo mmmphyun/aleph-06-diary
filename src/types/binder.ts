@@ -138,6 +138,7 @@ export interface IPlanPackageRepository {
   trashPlan(pkgId: string): PlanPackage[];
   restorePlan(pkgId: string, targetStatus?: 0 | 2): PlanPackage[];
   purgePlan(pkgId: string): PlanPackage[];
+  subscribe(listener: (packages: PlanPackage[]) => void): () => void;
   trashTask(pkgId: string, taskId: string): PlanPackage;
   restoreTask(pkgId: string, taskId: string, targetStatus?: 0 | 2): PlanPackage;
   purgeTask(pkgId: string, taskId: string): PlanPackage;

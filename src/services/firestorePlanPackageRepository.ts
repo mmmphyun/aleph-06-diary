@@ -33,11 +33,30 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
   private isInitialized = false;
   private unsubscribeSnapshot: (() => void) | null = null;
   private unsubscribeAuth: (() => void) | null = null;
+  private subscribers: Set<(packages: PlanPackage[]) => void> = new Set();
 
   constructor() {
     this.initCacheFromLocal();
     this.initFirestoreSync();
     this.bindAuthListener();
+  }
+
+  public subscribe(listener: (packages: PlanPackage[]) => void): () => void {
+    this.subscribers.add(listener);
+    return () => {
+      this.subscribers.delete(listener);
+    };
+  }
+
+  private notifySubscribers(): void {
+    const pkgs = this.loadPackages();
+    this.subscribers.forEach((cb) => {
+      try {
+        cb(pkgs);
+      } catch (err) {
+        console.error('[FirestorePlanPackageRepository] 구독자 통지 오류:', err);
+      }
+    });
   }
 
   private bindAuthListener(): void {
@@ -66,6 +85,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
       this.unsubscribeSnapshot();
       this.unsubscribeSnapshot = null;
     }
+    this.subscribers.clear();
   }
 
   private getCacheKey(): string {
@@ -103,6 +123,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
     } catch {
       // 로컬 스토리지 쓰기 오류 무시
     }
+    this.notifySubscribers();
   }
 
   private async initFirestoreSync(): Promise<void> {
@@ -129,8 +150,15 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
         if (email === DEMO_EVAL_EMAIL) {
           await this.seedPackages(INITIAL_PLAN_PACKAGES);
         } else {
-          this.cache = [];
-          this.saveToLocal();
+          if (this.cache.length === 0) {
+            this.cache = [];
+            this.saveToLocal();
+          } else {
+            // 로컬에 이미 작성된 계획이 있으면 날리지 않고 Firestore로 보존 전송
+            for (const pkg of this.cache) {
+              this.syncPackageToFirestore(pkg).catch(() => {});
+            }
+          }
         }
       } else {
         await this.refreshFromFirestore();
@@ -231,8 +259,15 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
 
       if (plansSnap.empty) {
         if (auth.currentUser?.email !== DEMO_EVAL_EMAIL) {
-          this.cache = [];
-          this.saveToLocal();
+          if (this.cache.length === 0) {
+            this.cache = [];
+            this.saveToLocal();
+          } else {
+            // 로컬에 작성된 계획이 이미 있으면 스냅샷이 비어있더라도 로컬 데이터를 파괴하지 않고 업스트림 재동기화
+            for (const pkg of this.cache) {
+              this.syncPackageToFirestore(pkg).catch(() => {});
+            }
+          }
         }
         return;
       }

@@ -369,7 +369,7 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     }
   };
 
-  // 세션 종료(currentUser null 전이) 시 표지 잠금 화면 자동 강제 복귀 및 사용자별 패키지 재동기화
+  // 세션 종료(currentUser null 전이) 시 표지 잠금 화면 자동 강제 복귀 및 사용자별 패키지 실시간 리액티브 구독
   useEffect(() => {
     if (!currentUser && isOpen) {
       handleCloseCover();
@@ -396,6 +396,23 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
         createdAt: today,
       });
     }
+
+    // 리포지토리(Firestore / 로컬 캐시) 변경 사항 실시간 리액티브 구독 (T07-C124)
+    const unsubscribe = planPackageService.subscribe((updatedPackages) => {
+      setPackages(updatedPackages);
+      if (updatedPackages.length > 0) {
+        setTransientDraft(null);
+        setCurrentPackageId((prevId) => {
+          if (prevId === 'draft-transient') return prevId;
+          const exists = updatedPackages.some((p) => p.id === prevId && p.trashStatus !== 1);
+          return exists ? prevId : updatedPackages[0].id;
+        });
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [currentUser]);
 
 
