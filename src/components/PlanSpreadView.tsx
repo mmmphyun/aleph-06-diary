@@ -81,11 +81,11 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
     setSelectionBubble(null);
   };
 
-  // 편집 저장 및 전체 본문 병합
+  // 편집 저장 및 전체 본문 병합 (7줄 초과분 절삭 없이 보존하여 다음 스프레드 자동 확장 지원)
   const handleSaveEditing = () => {
-    const leftTrimmed = leftEditorText.split('\n').slice(0, LINES_PER_PAGE);
-    const rightTrimmed = rightEditorText.split('\n').slice(0, LINES_PER_PAGE);
-    const updatedChunk = [...leftTrimmed, ...rightTrimmed].filter((l) => l.trim().length > 0);
+    const leftLinesArr = leftEditorText.split('\n');
+    const rightLinesArr = rightEditorText.split('\n');
+    const updatedChunk = [...leftLinesArr, ...rightLinesArr].filter((l) => l.trim().length > 0);
 
     const allLines = planContent.split('\n');
     const before = allLines.slice(0, lineOffset);
@@ -110,29 +110,23 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
     }
   };
 
-  // 우측 7행 에디터 줄바꿈 제어 (최대 7줄 초과 방어 및 포화 가이드 표출)
+  // 우측 에디터 입력 제어 (7행 포화 가이드 표출 및 텍스트 보존)
   const handleRightTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     const lines = val.split('\n');
-    if (lines.length > LINES_PER_PAGE) {
-      setRightEditorText(lines.slice(0, LINES_PER_PAGE).join('\n'));
+    setRightEditorText(val);
+    if (lines.length >= LINES_PER_PAGE) {
       setShowOverflowGuide(true);
     } else {
-      setRightEditorText(val);
-      if (lines.length === LINES_PER_PAGE) {
-        setShowOverflowGuide(true);
-      } else {
-        setShowOverflowGuide(false);
-      }
+      setShowOverflowGuide(false);
     }
   };
 
-  // 우측 에디터 키보드 엔터 감지 (7행 포화 시 추가 개행 차단 및 안내)
+  // 우측 에디터 키보드 엔터 감지 (7행 포화 시 추가 개행 안내)
   const handleRightKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
       const lines = rightEditorText.split('\n');
       if (lines.length >= LINES_PER_PAGE) {
-        e.preventDefault();
         setShowOverflowGuide(true);
       }
     }

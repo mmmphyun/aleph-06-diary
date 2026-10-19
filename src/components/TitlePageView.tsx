@@ -387,7 +387,7 @@ export const TitlePageView: React.FC<TitlePageViewProps> = ({
         <button
           type="button"
           onClick={onTurnPage}
-          disabled={disabled || !selectedPkg}
+          disabled={disabled}
           className="w-full py-2 px-3 rounded-lg bg-stone-800 hover:bg-stone-900 disabled:bg-stone-400 text-white font-sans text-xs font-medium transition-colors shadow-sm flex items-center justify-center gap-1.5 cursor-pointer group active:scale-95"
         >
           <span>

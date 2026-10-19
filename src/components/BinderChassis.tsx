@@ -46,10 +46,29 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     planPackageService.loadPackages()
   );
   const [currentPackageId, setCurrentPackageId] = useState<string>(
-    () => packages[0]?.id || 'plan-01'
+    () => packages[0]?.id || 'draft-transient'
   );
   // 미작성 상태의 유령 계획 스토리지 오염을 방지하는 임시 작성 상태 (Lazy Materialization)
-  const [transientDraft, setTransientDraft] = useState<PlanPackage | null>(null);
+  const [transientDraft, setTransientDraft] = useState<PlanPackage | null>(() => {
+    const loaded = planPackageService.loadPackages();
+    if (loaded.length === 0) {
+      const today = new Date().toISOString().split('T')[0];
+      return {
+        id: 'draft-transient',
+        title: '',
+        content: '',
+        revisions: [],
+        startPage: 1,
+        tasks: [],
+        logs: [],
+        tasksTemplateApplied: false,
+        planStatus: 'draft',
+        period: { start: today, end: today },
+        createdAt: today,
+      };
+    }
+    return null;
+  });
 
   // 속표지(Leaf 01 Front) 수동 넘김 여부 (true일 때만 본문 양면 스프레드 진입)
   const [hasTurnedTitlePage, setHasTurnedTitlePage] = useState(false);
@@ -84,12 +103,15 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
 
   // 임시 드래프트의 영속화(Commit Gate) 헬퍼
   const ensureCommittedPackageId = (initialTitle?: string, initialContent?: string): string => {
-    if (currentPackageId === 'draft-transient' && transientDraft) {
-      const finalTitle = (initialTitle ?? transientDraft.title).trim() || `새로운 계획 ${packages.length + 1}`;
+    const isCommitted = packages.some((p) => p.id === currentPackageId);
+    if (!isCommitted || currentPackageId === 'draft-transient' || currentPackageId === 'plan-empty-default') {
+      const today = new Date().toISOString().split('T')[0];
+      const fallbackTitle = `새로운 계획 ${packages.length + 1}`;
+      const finalTitle = (initialTitle ?? transientDraft?.title ?? '').trim() || fallbackTitle;
       const newPkg = planPackageService.createPackage(
         finalTitle,
-        transientDraft.period?.start,
-        transientDraft.period?.end
+        transientDraft?.period?.start || today,
+        transientDraft?.period?.end || today
       );
       if (initialContent !== undefined && initialContent !== '') {
         planPackageService.updatePlanText(newPkg.id, finalTitle, initialContent);
@@ -164,7 +186,8 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
 
   // 계획 본문 업데이트 핸들러
   const handleUpdatePlan = (title: string, content: string) => {
-    if (currentPackageId === 'draft-transient') {
+    const isCommitted = packages.some((p) => p.id === currentPackageId);
+    if (!isCommitted || currentPackageId === 'draft-transient' || currentPackageId === 'plan-empty-default') {
       if (title.trim().length > 0 || content.trim().length > 0) {
         ensureCommittedPackageId(title, content);
       } else {
@@ -355,6 +378,23 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     setPackages(freshPackages);
     if (freshPackages.length > 0) {
       setCurrentPackageId(freshPackages[0].id);
+      setTransientDraft(null);
+    } else {
+      setCurrentPackageId('draft-transient');
+      const today = new Date().toISOString().split('T')[0];
+      setTransientDraft({
+        id: 'draft-transient',
+        title: '',
+        content: '',
+        revisions: [],
+        startPage: 1,
+        tasks: [],
+        logs: [],
+        tasksTemplateApplied: false,
+        planStatus: 'draft',
+        period: { start: today, end: today },
+        createdAt: today,
+      });
     }
   }, [currentUser]);
 
@@ -362,6 +402,23 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
   // 속표지(Leaf 01) 넘김 핸들러: 실물 낱장 속지 3D 플립 후 본문 양면 스프레드로 진입
   const handleTurnTitlePage = () => {
     if (isLeafFlipping) return;
+    if (packages.length === 0 && (!transientDraft || currentPackageId !== 'draft-transient')) {
+      const today = new Date().toISOString().split('T')[0];
+      setTransientDraft({
+        id: 'draft-transient',
+        title: '',
+        content: '',
+        revisions: [],
+        startPage: 1,
+        tasks: [],
+        logs: [],
+        tasksTemplateApplied: false,
+        planStatus: 'draft',
+        period: { start: today, end: today },
+        createdAt: today,
+      });
+      setCurrentPackageId('draft-transient');
+    }
     setWritingSpread(0);
     setLeafFlipDirection('forward');
     setIsLeafFlipping(true);
