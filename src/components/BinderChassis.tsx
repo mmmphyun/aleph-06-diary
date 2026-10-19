@@ -129,13 +129,27 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     }, 280);
   };
 
-  // 현재 선택된 패키지 객체 추출 및 챕터 번호 계산 (휴지통 계획 배제 폴백)
+  // 현재 선택된 패키지 객체 추출 및 챕터 번호 계산 (휴지통 계획 배제 폴백 및 빈 상태 방어)
   const isTransientActive = currentPackageId === 'draft-transient' && transientDraft !== null;
   const activePackages = packages.filter((p) => p.trashStatus !== 1);
   const matchedPkg = packages.find((p) => p.id === currentPackageId);
+  const todayStr = new Date().toISOString().split('T')[0];
+  const fallbackPkg: PlanPackage = {
+    id: 'plan-empty-default',
+    title: '새로운 계획',
+    content: '',
+    revisions: [],
+    startPage: 1,
+    tasks: [],
+    logs: [],
+    tasksTemplateApplied: false,
+    planStatus: 'draft',
+    period: { start: todayStr, end: todayStr },
+    createdAt: todayStr,
+  };
   const resolvedPkg = (matchedPkg && matchedPkg.trashStatus !== 1)
     ? matchedPkg
-    : (activePackages[0] || packages[0]);
+    : (activePackages[0] || packages[0] || fallbackPkg);
   const currentPackage: PlanPackage = isTransientActive ? transientDraft : resolvedPkg;
   const chapterNumber = isTransientActive
     ? activePackages.length + 1
@@ -332,10 +346,15 @@ export const BinderChassis: React.FC<BinderChassisProps> = ({
     }
   };
 
-  // 세션 종료(currentUser null 전이) 시 표지 잠금 화면 자동 강제 복귀
+  // 세션 종료(currentUser null 전이) 시 표지 잠금 화면 자동 강제 복귀 및 사용자별 패키지 재동기화
   useEffect(() => {
     if (!currentUser && isOpen) {
       handleCloseCover();
+    }
+    const freshPackages = planPackageService.loadPackages();
+    setPackages(freshPackages);
+    if (freshPackages.length > 0) {
+      setCurrentPackageId(freshPackages[0].id);
     }
   }, [currentUser]);
 

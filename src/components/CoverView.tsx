@@ -260,6 +260,22 @@ export const CoverView: React.FC<CoverViewProps> = ({
                     </>
                   )}
                 </button>
+
+                {/* 과제 7 평가/관찰용 더미 계정 자격 증명 간편 입력 버튼 */}
+                <div className="pt-1 border-t border-stone-800 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('login');
+                      setEmail('eval@pds-diary.test');
+                      setPassword('Password123!');
+                      setLocalError(null);
+                    }}
+                    className="text-[10px] font-mono text-amber-300/80 hover:text-amber-200 underline decoration-amber-500/50 hover:decoration-amber-300 transition-colors cursor-pointer"
+                  >
+                    [과제 평가용 더미 계정 자격 증명 자동 입력]
+                  </button>
+                </div>
               </form>
             </div>
           )}

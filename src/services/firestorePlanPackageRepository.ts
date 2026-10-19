@@ -25,15 +25,47 @@ import {
   calculateActualMinutes,
 } from '../utils/dateUtils';
 
+export const DEMO_EVAL_EMAIL = 'eval@pds-diary.test';
 const STORAGE_CACHE_KEY = 'aleph06_plan_packages';
 
 class FirestorePlanPackageRepository implements IPlanPackageRepository {
   private cache: PlanPackage[] = [];
   private isInitialized = false;
+  private unsubscribeSnapshot: (() => void) | null = null;
+  private unsubscribeAuth: (() => void) | null = null;
 
   constructor() {
     this.initCacheFromLocal();
     this.initFirestoreSync();
+    this.bindAuthListener();
+  }
+
+  private bindAuthListener(): void {
+    try {
+      this.unsubscribeAuth = auth.onAuthStateChanged((user) => {
+        if (this.unsubscribeSnapshot) {
+          this.unsubscribeSnapshot();
+          this.unsubscribeSnapshot = null;
+        }
+        this.initCacheFromLocal();
+        if (user) {
+          this.syncUserFirestore(user.uid, user.email || '').catch(() => {});
+        }
+      });
+    } catch {
+      // Node 테스트 환경 방어
+    }
+  }
+
+  public cleanup(): void {
+    if (this.unsubscribeAuth) {
+      this.unsubscribeAuth();
+      this.unsubscribeAuth = null;
+    }
+    if (this.unsubscribeSnapshot) {
+      this.unsubscribeSnapshot();
+      this.unsubscribeSnapshot = null;
+    }
   }
 
   private getCacheKey(): string {
@@ -42,6 +74,7 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
   }
 
   private initCacheFromLocal(): void {
+    const user = auth.currentUser;
     try {
       const data = localStorage.getItem(this.getCacheKey());
       if (data) {
@@ -54,7 +87,14 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
     } catch {
       // 로컬 스토리지 파싱 오류 방어
     }
-    this.cache = [...INITIAL_PLAN_PACKAGES];
+
+    // 평가용 더미 계정 또는 로컬 비인증 단위 테스트 환경에서만 샘플 데이터 로드
+    // 신규 일반 가입자(user !== null && user.email !== DEMO_EVAL_EMAIL)는 빈 다이어리(Clean State)로 시작
+    if (!user || user.email === DEMO_EVAL_EMAIL) {
+      this.cache = [...INITIAL_PLAN_PACKAGES];
+    } else {
+      this.cache = [];
+    }
   }
 
   private saveToLocal(): void {
@@ -70,25 +110,35 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
     this.isInitialized = true;
 
     try {
-      const uid = auth.currentUser?.uid;
-      if (!uid) {
-        // 미인증 상태에서는 로컬 캐시 유지
+      const user = auth.currentUser;
+      if (!user) {
         return;
       }
+      await this.syncUserFirestore(user.uid, user.email || '');
+    } catch (error) {
+      console.warn('[FirestorePlanPackageRepository] Firestore 초기화/동기화 대기 (오프라인 캐시 유지):', error);
+    }
+  }
 
+  private async syncUserFirestore(uid: string, email: string): Promise<void> {
+    try {
       const q = query(collection(db, 'plans'), where('userId', '==', uid));
       const plansSnapshot = await getDocs(q);
       if (plansSnapshot.empty) {
-        // Firestore에 사용자 데이터가 없으면 사용자 UID를 주입하여 초기 패키지 원자적 시딩
-        await this.seedPackages(this.cache);
+        // 평가/채점용 더미 계정에만 5일 정적 데이터셋 원자적 시딩 수행
+        if (email === DEMO_EVAL_EMAIL) {
+          await this.seedPackages(INITIAL_PLAN_PACKAGES);
+        } else {
+          this.cache = [];
+          this.saveToLocal();
+        }
       } else {
         await this.refreshFromFirestore();
       }
 
-      // Firestore 변경사항 실시간 감지 및 인메모리/로컬 동기화
       this.listenToCollections();
     } catch (error) {
-      console.warn('[FirestorePlanPackageRepository] Firestore 초기화/동기화 대기 (오프라인 캐시 유지):', error);
+      console.warn('[FirestorePlanPackageRepository] Firestore 동기화 오류:', error);
     }
   }
 
@@ -179,7 +229,13 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
         getDocs(query(collection(db, 'executionLogs'), where('userId', '==', uid))),
       ]);
 
-      if (plansSnap.empty) return;
+      if (plansSnap.empty) {
+        if (auth.currentUser?.email !== DEMO_EVAL_EMAIL) {
+          this.cache = [];
+          this.saveToLocal();
+        }
+        return;
+      }
 
       const planDocs = plansSnap.docs.map((d) => d.data());
       const taskDocs = tasksSnap.docs.map((d) => d.data());
@@ -196,9 +252,14 @@ class FirestorePlanPackageRepository implements IPlanPackageRepository {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
 
+    if (this.unsubscribeSnapshot) {
+      this.unsubscribeSnapshot();
+      this.unsubscribeSnapshot = null;
+    }
+
     // plans 컬렉션 변경 리스너 (where('userId', '==', uid) 필터 강제)
     const q = query(collection(db, 'plans'), where('userId', '==', uid));
-    onSnapshot(q, () => {
+    this.unsubscribeSnapshot = onSnapshot(q, () => {
       this.refreshFromFirestore().catch(() => {});
     });
   }
