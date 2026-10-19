@@ -6,7 +6,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { INITIAL_PLAN_PACKAGES } from './initialData';
+import { LEGACY_T06_PLAN_PACKAGES } from './initialData';
 
 export interface MigrationResult {
   plansMigrated: number;
@@ -43,9 +43,9 @@ export async function migrateLegacyDataToUser(
   let tasksMigrated = 0;
   let logsMigrated = 0;
 
-  // Firestore가 비어있을 경우 과제 6 프로덕션 실데이터(INITIAL_PLAN_PACKAGES 기준 plans 2, tasks 7, logs 4)를 바탕으로 마이그레이션
+  // Firestore가 비어있을 경우 과제 6 프로덕션 실데이터(LEGACY_T06_PLAN_PACKAGES 기준 plans 2, tasks 7, logs 4)를 바탕으로 마이그레이션
   if (plansSnap.empty && tasksSnap.empty && logsSnap.empty) {
-    for (const pkg of INITIAL_PLAN_PACKAGES) {
+    for (const pkg of LEGACY_T06_PLAN_PACKAGES) {
       const planRef = doc(customDb, 'plans', pkg.id);
       batch.set(planRef, {
         id: pkg.id,
