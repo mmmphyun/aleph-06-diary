@@ -53,10 +53,10 @@ export const IndexTabs: React.FC<IndexTabsProps> = ({
 
   return (
     <aside
-      className={`absolute top-16 flex flex-col gap-3 select-none transition-transform duration-300 ${
-        peekOnly ? '-right-3 pointer-events-none' : '-right-7'
+      className={`absolute top-16 left-full flex flex-col gap-3 select-none transition-all duration-300 ${
+        peekOnly ? '-translate-x-20 pointer-events-none opacity-30' : 'translate-x-0'
       }`}
-      style={{ zIndex: 22 }}
+      style={{ zIndex: 20 }}
       aria-label="바인더 대분류 인덱스 탭"
     >
       {/* M1: 상단 탭 영역 로그아웃 버튼 (T07-C95) */}

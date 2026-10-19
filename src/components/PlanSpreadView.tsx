@@ -95,27 +95,55 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
     setIsEditing(false);
   };
 
-  // 좌측 7행 에디터 줄바꿈 및 오버플로우 방어
+  const MAX_CHARS_PER_LINE = 26;
+
+  // 텍스트 행 정규화 헬퍼: 26자 초과 시 줄바꿈 자동 분할
+  const wrapLinesByMaxChars = (text: string): string[] => {
+    const rawLines = text.split('\n');
+    const result: string[] = [];
+    for (const line of rawLines) {
+      if (line.length > MAX_CHARS_PER_LINE) {
+        let remaining = line;
+        while (remaining.length > MAX_CHARS_PER_LINE) {
+          result.push(remaining.slice(0, MAX_CHARS_PER_LINE));
+          remaining = remaining.slice(MAX_CHARS_PER_LINE);
+        }
+        if (remaining.length > 0) {
+          result.push(remaining);
+        }
+      } else {
+        result.push(line);
+      }
+    }
+    return result;
+  };
+
+  // 좌측 7행 에디터 줄바꿈 및 오버플로우 방어: 26자 초과 및 7줄 초과 시 우측 에디터로 자연스럽게 전송
   const handleLeftTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
-    const lines = val.split('\n');
-    if (lines.length > LINES_PER_PAGE) {
-      // 7줄 초과 시 8번째 줄 이후 내용은 우측 에디터로 자동 전송
-      setLeftEditorText(lines.slice(0, LINES_PER_PAGE).join('\n'));
-      const overflow = lines.slice(LINES_PER_PAGE).join('\n');
-      setRightEditorText((prev) => (prev ? `${overflow}\n${prev}` : overflow));
-      rightTextareaRef.current?.focus();
+    const normalizedLines = wrapLinesByMaxChars(val);
+
+    if (normalizedLines.length > LINES_PER_PAGE) {
+      // 7줄 초과 시 1~7줄은 좌측에 남기고, 8번째 줄 이후 내용은 우측 에디터로 자동 전송
+      const leftPart = normalizedLines.slice(0, LINES_PER_PAGE).join('\n');
+      const overflowPart = normalizedLines.slice(LINES_PER_PAGE).join('\n');
+      setLeftEditorText(leftPart);
+      setRightEditorText((prev) => (prev ? `${overflowPart}\n${prev}` : overflowPart));
+      // 우측 에디터로 자연스럽게 커서 포커스 이동
+      setTimeout(() => {
+        rightTextareaRef.current?.focus();
+      }, 10);
     } else {
-      setLeftEditorText(val);
+      setLeftEditorText(normalizedLines.join('\n'));
     }
   };
 
-  // 우측 에디터 입력 제어 (7행 포화 가이드 표출 및 텍스트 보존)
+  // 우측 에디터 입력 제어: 26자 초과 분할, 7행 포화 가이드 표출 및 텍스트 보존
   const handleRightTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
-    const lines = val.split('\n');
-    setRightEditorText(val);
-    if (lines.length >= LINES_PER_PAGE) {
+    const normalizedLines = wrapLinesByMaxChars(val);
+    setRightEditorText(normalizedLines.join('\n'));
+    if (normalizedLines.length >= LINES_PER_PAGE) {
       setShowOverflowGuide(true);
     } else {
       setShowOverflowGuide(false);
@@ -226,11 +254,11 @@ export const PlanSpreadView: React.FC<PlanSpreadViewProps> = ({
     return (
       <span className="font-handwriting text-[19px] leading-normal tracking-wide font-medium">
         <span className="text-stone-900">{parts[0]}</span>
-        <ruby className="inline-flex flex-col align-bottom">
-          <span className="line-through text-stone-400 decoration-stone-500 decoration-2">
+        <ruby className="inline-flex flex-col align-bottom mx-0.5">
+          <span className="line-through text-stone-400 decoration-red-400/80 decoration-2">
             {matchedRev.originalText}
           </span>
-          <rt className="text-[13px] font-handwriting text-red-800 -mt-1 leading-none tracking-wide block font-semibold">
+          <rt className="text-[14.5px] font-handwriting text-red-700 bg-red-50/95 px-1.5 py-0.5 rounded border border-red-200/90 -mt-1 leading-none tracking-wide block font-bold shadow-2xs">
             ↳ {matchedRev.correctedText}
           </rt>
         </ruby>
